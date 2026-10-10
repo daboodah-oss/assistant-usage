@@ -1,4 +1,4 @@
-# Lane handoff: Grok usage sampler
+# Lane handoff: Grok usage sampler (v2 — owner-hosted)
 
 > Jeff: paste everything below this line to Grok (Ara).
 
@@ -6,14 +6,21 @@
 
 You own the `grok` lane of the repo `daboodah-oss/assistant-usage` — a unified
 usage dashboard for Jeff's three AI assistants (Muse, Claude, Grok). Your job:
-build a sampler that records his Grok (SuperGrok) subscription usage every
-15 minutes so it appears on the shared page.
+feed your Grok (SuperGrok) subscription usage into the shared page.
 
 ## Read first (in the repo)
 
 1. `README.md` — project overview and the lane rule
-2. `docs/DATA_CONTRACT.md` — the exact CSV schema your sampler must write
-3. `docs/SECRETS.md` — how credentials are stored (never committed, never logged)
+2. `docs/DATA_CONTRACT.md` — the exact CSV schema you must write
+3. `docs/DEPLOYMENT.md` — deployment patterns (you are pattern B: owner-hosted)
+4. `docs/SECRETS.md` — you need **no GitHub secrets** under this pattern
+
+## Decision (already made)
+
+You flagged that the Grok refresh token rotates on every use and GitHub
+Actions cannot write rotated tokens back into repo secrets — so the Actions
+pattern is out. You run **owner-hosted**: your box, your existing tracker,
+your login. No tokens ever leave your computer, no lane workflow file.
 
 ## Lane discipline
 
@@ -23,47 +30,28 @@ build a sampler that records his Grok (SuperGrok) subscription usage every
 
 ## What to build
 
-1. **`lanes/grok/collect.py`** (Python 3, stdlib + `requests` if available):
-   - `GET https://cli-chat-proxy.grok.com/v1/user?include=subscription` →
-     `userId` and plan tier. Headers on every call:
-     `Authorization: Bearer $GROK_ACCESS_TOKEN`,
-     `X-XAI-Token-Auth: xai-grok-cli`, plus a client identifier/version.
-     (These are the same first-party endpoints the official Grok CLI uses;
-     they are undocumented, so parse defensively. A plain xAI API key does
-     NOT work here.)
-   - `GET https://cli-chat-proxy.grok.com/v1/billing?format=credits` with the
-     `userId` in an `x-userid` header → `config.creditUsagePercent` (the
-     headline weekly-pool % — this is your `usage_pct`), `billingPeriodEnd`
-     (your `reset_iso`), plan tier (your `plan`), `window` = `weekly`.
-     Optionally also write one row per entry of `config.productUsage[]`
-     (`window` = `weekly_<product>`, `usage_pct` = its `usagePercent`).
-   - Fields vary by account/rollout: if `creditUsagePercent` is absent, write
-     nothing (empty `usage_pct`), exit 0. Never treat missing as zero.
-   - Access tokens last ~6h: refresh via `auth.x.ai` with
-     `GROK_REFRESH_TOKEN` (rotating — verify the flow against a working
-     community implementation, do not invent it). On 401, refresh, retry
-     once; on second 401 write nothing and exit 0.
-   - Use a lockfile so concurrent runs can't double-rotate the refresh token.
-2. **`.github/workflows/sample-grok.yml`**: cron every 15 min — run
-   `collect.py` with the two secrets as env vars, commit
-   `data/grok/usage.csv` if it changed, push.
-   NOTE: pushing workflow files via the GitHub API needs the `workflow`
-   scope. If your push is rejected with 404, add the file through the GitHub
-   web UI instead (Add file → Create new file) and tell Jeff.
-3. **`lanes/grok/README.md`**: how it works and how Jeff re-provisions the
-   login when the refresh token dies.
+1. **`lanes/grok/collect.py`**: reads the latest reading from your existing
+   usage tracker (the one sampling the billing endpoint every 5 minutes) and
+   writes **one row** to `data/grok/usage.csv` per the data contract:
+   `usage_pct` = `creditUsagePercent`, `reset_iso` = `billingPeriodEnd`,
+   `plan` = subscription tier, `window` = `weekly`. Optionally one extra row
+   per `config.productUsage[]` entry (`window` = `weekly_<product>`).
+   If the tracker has no fresh reading (or the field is absent), write
+   nothing — never treat missing as zero.
+2. **A 15-minute routine on your box**: run `collect.py`, commit
+   `data/grok/usage.csv` if it changed, push to `main`. Every push to
+   `data/**` triggers the repo's `build-site` workflow, so your panel appears
+   automatically.
+3. **`lanes/grok/README.md`**: update it to describe owner-hosted operation —
+   where the tracker lives, how the login survives rebuilds, how Jeff (or a
+   future you) re-provisions it.
 
-## What Jeff must do (he does this, not you — spell it out for him)
+## What Jeff must do
 
-1. Install the official Grok CLI and run `grok login` (browser OAuth).
-2. Open `~/.grok/auth.json`, copy the access token → repo secret
-   `GROK_ACCESS_TOKEN` and the refresh token → `GROK_REFRESH_TOKEN`
-   (GitHub repo Settings → Secrets and variables → Actions → New repository
-   secret). Warn him these are bearer tokens to his account.
+Nothing on this lane. No login, no secrets.
 
 ## Acceptance
 
-- Three consecutive workflow runs append rows.
+- Three consecutive routine runs commit fresh rows.
 - The unified page shows a Grok panel with current % and reset countdown.
-- `git log -p -- lanes/grok data/grok | grep -iE 'token|bearer'` shows
-  nothing sensitive.
+- No token material anywhere in the repo history.
