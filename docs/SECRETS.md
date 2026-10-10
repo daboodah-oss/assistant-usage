@@ -1,15 +1,19 @@
 # Secrets
 
 Bearer tokens are passwords. Least privilege, never committed, never logged,
-never pasted into chat. All lane secrets live in GitHub Actions secrets
-(repo Settings → Secrets and variables → Actions), consumed only by that
-lane's sampler workflow.
+never pasted into chat.
+
+Lanes that run **owner-hosted** (see `docs/DEPLOYMENT.md` pattern B) need **no
+GitHub secrets at all** — tokens stay on the owner's machine. Only lanes
+running in GitHub Actions (pattern A) use the secrets below, stored in repo
+Settings → Secrets and variables → Actions and consumed only by that lane's
+sampler workflow.
 
 | Secret(s) | Lane | What it is | Provisioned by |
 |-----------|------|-----------|----------------|
-| — | `muse` | none — runs on Budzilla's VM, uses the local `subscription-status` CLI session | — |
-| `CLAUDE_ACCESS_TOKEN`, `CLAUDE_REFRESH_TOKEN` | `claude` | Claude Code OAuth token pair | Jeff: `claude login` on his PC, copy from Claude Code's credentials file |
-| `GROK_ACCESS_TOKEN`, `GROK_REFRESH_TOKEN` | `grok` | Grok CLI OAuth token pair | Jeff: `grok login`, copy from `~/.grok/auth.json` |
+| — | `muse` | none — owner-hosted; uses the local `subscription-status` CLI session on Budzilla's VM | — |
+| — | `grok` | none — owner-hosted; Ara's box holds its own Grok CLI login | — |
+| `CLAUDE_ACCESS_TOKEN`, `CLAUDE_REFRESH_TOKEN` | `claude` | Claude Code OAuth token pair — **only if** the lane runs in GitHub Actions (pattern A); not needed for owner-hosted | Jeff: `claude login` on his PC, copy from Claude Code's credentials file |
 
 ## Rules
 
