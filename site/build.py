@@ -12,7 +12,9 @@ import os
 from datetime import datetime, timezone
 
 HOME = os.path.expanduser("~")
-BASE = os.path.join(HOME, "workspace", "assistant-usage")
+# Repo root = parent of the site/ directory this script lives in.
+# (Must be repo-relative: on GitHub runners $HOME is not the repo.)
+BASE = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 DATA = os.path.join(BASE, "data")
 OUT = os.path.join(BASE, "index.html")
 
