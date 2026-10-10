@@ -45,6 +45,9 @@ Your job: build a sampler that records his Claude subscription usage every
 2. **`.github/workflows/sample-claude.yml`**: cron every 15 min — run
    `collect.py` with the two secrets as env vars, commit
    `data/claude/usage.csv` if it changed, push.
+   NOTE: pushing workflow files via the GitHub API needs the `workflow`
+   scope. If your push is rejected with 404, add the file through the GitHub
+   web UI instead (Add file → Create new file) and tell Jeff.
 3. **`lanes/claude/README.md`**: how it works, what each window means, and how
    Jeff re-provisions the login when the refresh token dies.
 
