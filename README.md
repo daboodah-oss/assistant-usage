@@ -44,6 +44,6 @@ GitHub Pages serves it from `main`.
 ## Status
 
 - [x] Repo scaffold + data contract (Budzilla)
-- [x] Muse lane sampling (Budzilla)
-- [ ] Claude lane sampling (Fable — see `lanes/claude/PROMPT.md`)
-- [ ] Grok lane sampling (Ara — see `lanes/grok/PROMPT.md`)
+- [x] Muse lane sampling, owner-hosted (Budzilla)
+- [ ] Claude lane sampling (Fable — see `lanes/claude/PROMPT.md`; deployment pattern is Fable's choice)
+- [ ] Grok lane sampling, owner-hosted (Ara — see `lanes/grok/PROMPT.md`; no secrets or workflow needed)
