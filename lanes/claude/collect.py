@@ -1,23 +1,29 @@
 #!/usr/bin/env python3
 """Claude lane sampler: append Claude subscription usage to data/claude/usage.csv.
 
-Reads the same undocumented endpoint Claude Code's /usage reads and writes one
-row per window per run, per docs/DATA_CONTRACT.md.  Stdlib only.
+Owner-hosted (docs/DEPLOYMENT.md pattern B).  Runs on the machine that holds
+the Claude Code login, reads the same undocumented endpoint Claude Code's
+/usage reads, and writes one row per window per run (docs/DATA_CONTRACT.md).
+Stdlib only.  Works on Windows, macOS and Linux.
 
-Principles (see docs/DATA_CONTRACT.md and docs/SECRETS.md):
+Principles:
   * Unknown is never zero.  Any failure or unrecognized shape writes NO row.
   * Expected failures exit 0.  A run that records nothing is not an error.
-  * Secrets come from env vars only and are never printed or written to data/.
+  * Tokens never leave this machine: never printed, never written to data/.
 
-Environment:
-  CLAUDE_ACCESS_TOKEN    required, Claude Code OAuth access token
-  CLAUDE_REFRESH_TOKEN   optional but needed to survive access-token expiry
-  CLAUDE_PLAN            optional plan label (e.g. max, pro); default "unknown"
-  CLAUDE_TOKEN_OUT       optional path; rotated tokens are written here as JSON
-                         (mode 0600) so the caller can persist them
-  CLAUDE_NO_REFRESH      set to 1 to never refresh (refreshing rotates the
-                         refresh token, which is destructive if nobody
-                         persists the new one)
+Credentials (checked in this order):
+  1. CLAUDE_ACCESS_TOKEN / CLAUDE_REFRESH_TOKEN env vars (pattern A style).
+     Rotated tokens go to CLAUDE_TOKEN_OUT as JSON (0600) if set.
+  2. A Claude Code credentials file: CLAUDE_CREDENTIALS_FILE, else
+     $CLAUDE_CONFIG_DIR/.credentials.json, else ~/.claude/.credentials.json.
+     Rotated tokens are written back to that file under the same mkdir lock
+     Claude Code uses (<dir>/.oauth_refresh.lock), so the login stays valid.
+
+Other env vars:
+  CLAUDE_PLAN         plan label override; otherwise taken from the
+                      credentials file (subscriptionType / rateLimitTier)
+  CLAUDE_NO_REFRESH   set to 1 to never refresh (read-only use of a login)
+  CLAUDE_USAGE_CSV    output path override (default data/claude/usage.csv)
 """
 import csv
 import json
@@ -43,10 +49,13 @@ BETA = "oauth-2025-04-20"
 HTTP_TIMEOUT = 30
 
 REPO = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-CSV_PATH = os.path.join(REPO, "data", "claude", "usage.csv")
+CSV_PATH = os.environ.get("CLAUDE_USAGE_CSV") or os.path.join(REPO, "data", "claude", "usage.csv")
 LOCK_PATH = os.path.join(tempfile.gettempdir(), "assistant-usage-claude.lock")
 LOCK_STALE_S = 120
-MIN_GAP_S = 120  # DATA_CONTRACT rule 6
+REFRESH_LOCK_STALE_S = 60      # same as the CLI's .oauth_refresh.lock
+REFRESH_LOCK_WAIT_S = 15
+EXPIRY_SKEW_S = 120            # refresh this close to expiresAt instead of risking a 401
+MIN_GAP_S = 120                # DATA_CONTRACT rule 6
 HEADER = ["timestamp_utc", "usage_pct", "plan", "reset_iso", "window", "raw"]
 
 _SECRETS = []  # token values to redact from any log line
@@ -104,7 +113,7 @@ def get_usage(access_token):
 
 
 def refresh_tokens(refresh_token):
-    """One refresh attempt.  Returns dict with access_token (+refresh_token) or None.
+    """One refresh attempt.  Returns the token response dict or None.
 
     Endpoint, form encoding and client id verified against community reports
     of the Claude Code CLI (platform.claude.com, falling back to
@@ -133,17 +142,159 @@ def refresh_tokens(refresh_token):
     return None
 
 
-def save_rotated(path, tokens, old_refresh):
-    """Write rotated tokens to `path` (0600).  Only fields we got back."""
-    out = {"access_token": tokens["access_token"]}
-    new_refresh = tokens.get("refresh_token")
-    if isinstance(new_refresh, str) and new_refresh:
-        out["refresh_token"] = new_refresh
-    else:
-        out["refresh_token"] = old_refresh  # server did not rotate it
-    fd = os.open(path, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
-    with os.fdopen(fd, "w") as f:
-        json.dump(out, f)
+# --------------------------------------------------------------------------
+# Credential sources
+# --------------------------------------------------------------------------
+class EnvCreds:
+    """Tokens from env vars (pattern A style).  Rotation goes to CLAUDE_TOKEN_OUT."""
+
+    def __init__(self, access, refresh, token_out):
+        self.access, self.refresh, self.token_out = access, refresh, token_out
+        self.plan = None
+
+    def describe(self):
+        return "env"
+
+    def reload(self):
+        return False  # nothing can change underneath us
+
+    def save(self, tokens):
+        new_refresh = tokens.get("refresh_token")
+        out = {"access_token": tokens["access_token"],
+               "refresh_token": new_refresh if isinstance(new_refresh, str) and new_refresh else self.refresh}
+        if not self.token_out:
+            log("warning: tokens rotated but CLAUDE_TOKEN_OUT unset; new refresh token is lost")
+            return
+        fd = os.open(self.token_out, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
+        with os.fdopen(fd, "w") as f:
+            json.dump(out, f)
+
+
+class FileCreds:
+    """Claude Code's .credentials.json.  Refresh under the CLI's own lock."""
+
+    def __init__(self, path):
+        self.path = path
+        self.dir = os.path.dirname(path)
+        self.lock_dir = os.path.join(self.dir, ".oauth_refresh.lock")
+        self.data = None
+        self.access = self.refresh = self.plan = None
+        self.expires_at = None  # epoch seconds or None
+
+    def describe(self):
+        return "file"
+
+    def reload(self):
+        """Re-read the file.  Returns True if the access token changed."""
+        old = self.access
+        with open(self.path, encoding="utf-8") as f:
+            self.data = json.load(f)
+        oauth = self.data.get("claudeAiOauth") if isinstance(self.data, dict) else None
+        if not isinstance(oauth, dict) or not isinstance(oauth.get("accessToken"), str):
+            raise ValueError("credentials file has no claudeAiOauth.accessToken")
+        self.access = oauth["accessToken"]
+        self.refresh = oauth.get("refreshToken") if isinstance(oauth.get("refreshToken"), str) else ""
+        exp = oauth.get("expiresAt")
+        self.expires_at = exp / 1000.0 if isinstance(exp, (int, float)) and not isinstance(exp, bool) and exp > 1e11 else None
+        sub = oauth.get("subscriptionType")
+        tier = oauth.get("rateLimitTier")
+        self.plan = sub if isinstance(sub, str) and sub.strip() else (tier if isinstance(tier, str) and tier.strip() else None)
+        _SECRETS.extend([self.access, self.refresh])
+        return old is not None and old != self.access
+
+    def about_to_expire(self):
+        return self.expires_at is not None and time.time() > self.expires_at - EXPIRY_SKEW_S
+
+    def _acquire_lock(self):
+        deadline = time.time() + REFRESH_LOCK_WAIT_S
+        while True:
+            try:
+                os.mkdir(self.lock_dir)
+                return True
+            except FileExistsError:
+                try:
+                    if time.time() - os.path.getmtime(self.lock_dir) > REFRESH_LOCK_STALE_S:
+                        os.rmdir(self.lock_dir)
+                        continue
+                except OSError:
+                    pass
+                if time.time() > deadline:
+                    return False
+                time.sleep(0.5)
+
+    def _release_lock(self):
+        try:
+            os.rmdir(self.lock_dir)
+        except OSError:
+            pass
+
+    def save(self, tokens):
+        oauth = dict(self.data["claudeAiOauth"])
+        oauth["accessToken"] = tokens["access_token"]
+        new_refresh = tokens.get("refresh_token")
+        if isinstance(new_refresh, str) and new_refresh:
+            oauth["refreshToken"] = new_refresh
+        ttl = tokens.get("expires_in")
+        if isinstance(ttl, (int, float)) and not isinstance(ttl, bool) and ttl > 0:
+            oauth["expiresAt"] = int((time.time() + ttl) * 1000)
+        data = dict(self.data)
+        data["claudeAiOauth"] = oauth
+        tmp = self.path + ".tmp"
+        fd = os.open(tmp, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
+        with os.fdopen(fd, "w", encoding="utf-8") as f:
+            json.dump(data, f, indent=2)
+        os.replace(tmp, self.path)
+        self.data = data
+        self.access, self.refresh = oauth["accessToken"], oauth.get("refreshToken", "")
+        self.expires_at = oauth.get("expiresAt", 0) / 1000.0 if "expiresAt" in oauth else None
+
+    def refresh_locked(self):
+        """Refresh under the CLI lock.  Returns 'ok', 'reused', 'locked' or 'failed'.
+
+        'reused': another process (usually Claude Code itself) refreshed
+        between our read and our lock, so we just take its new token.
+        """
+        if not self._acquire_lock():
+            return "locked"
+        try:
+            try:
+                if self.reload():
+                    return "reused"
+            except Exception as e:
+                log(f"re-read of credentials failed: {type(e).__name__}")
+                return "failed"
+            tokens = refresh_tokens(self.refresh)
+            if not tokens:
+                return "failed"
+            _SECRETS.extend([tokens.get("access_token", ""), tokens.get("refresh_token", "") or ""])
+            self.save(tokens)
+            return "ok"
+        finally:
+            self._release_lock()
+
+
+def credentials_path():
+    p = os.environ.get("CLAUDE_CREDENTIALS_FILE", "").strip()
+    if p:
+        return os.path.expanduser(p)
+    d = os.environ.get("CLAUDE_CONFIG_DIR", "").strip()
+    if d:
+        return os.path.join(os.path.expanduser(d), ".credentials.json")
+    return os.path.join(os.path.expanduser("~"), ".claude", ".credentials.json")
+
+
+def load_credentials():
+    access = os.environ.get("CLAUDE_ACCESS_TOKEN", "").strip()
+    if access:
+        refresh = os.environ.get("CLAUDE_REFRESH_TOKEN", "").strip()
+        _SECRETS.extend([access, refresh])
+        return EnvCreds(access, refresh, os.environ.get("CLAUDE_TOKEN_OUT", "").strip())
+    path = credentials_path()
+    if not os.path.exists(path):
+        return None
+    c = FileCreds(path)
+    c.reload()
+    return c
 
 
 # --------------------------------------------------------------------------
@@ -202,7 +353,6 @@ def parse_usage(js):
         return []
     found = {}
 
-    # Flat keys: five_hour / seven_day.
     for key in ("five_hour", "seven_day"):
         w = js.get(key)
         if isinstance(w, dict):
@@ -228,7 +378,6 @@ def parse_usage(js):
                 if all(name != m[0] for m in models):
                     models.append((name, pct, norm_reset(e.get("resets_at")), raw_excerpt(e)))
             else:
-                # Unscoped entry: only a fallback when the flat key is absent.
                 kind = slug(e.get("kind", ""))
                 if kind in ("five_hour", "seven_day") and kind not in found:
                     found[kind] = (pct, norm_reset(e.get("resets_at")), raw_excerpt(e))
@@ -243,13 +392,11 @@ def parse_usage(js):
 
 
 # --------------------------------------------------------------------------
-# Lock + CSV
+# Run lock + CSV
 # --------------------------------------------------------------------------
 class Lock:
-    """Portable O_EXCL lockfile with stale takeover.  Prevents two local runs
-    from double-rotating the refresh token.  (On GitHub runners, which are
-    ephemeral, cross-run exclusion comes from the workflow `concurrency` group.)
-    """
+    """Portable O_EXCL lockfile with stale takeover, so two overlapping sampler
+    runs on this machine cannot double-rotate the refresh token."""
 
     def __enter__(self):
         for _ in range(2):
@@ -279,7 +426,7 @@ def last_timestamp(path):
     if not os.path.exists(path):
         return None
     last = None
-    with open(path, newline="") as f:
+    with open(path, newline="", encoding="utf-8") as f:
         for r in csv.DictReader(f):
             try:
                 last = datetime.fromisoformat(r["timestamp_utc"])
@@ -296,7 +443,7 @@ def append_rows(path, now, plan, rows):
         with open(path, "rb") as f:
             f.seek(-1, os.SEEK_END)
             needs_nl = f.read(1) not in (b"\n", b"\r")
-    with open(path, "a", newline="") as f:
+    with open(path, "a", newline="", encoding="utf-8") as f:
         if needs_nl:
             f.write("\n")
         w = csv.writer(f, lineterminator="\n")
@@ -308,17 +455,41 @@ def append_rows(path, now, plan, rows):
 
 
 # --------------------------------------------------------------------------
-def run():
-    access = os.environ.get("CLAUDE_ACCESS_TOKEN", "").strip()
-    refresh = os.environ.get("CLAUDE_REFRESH_TOKEN", "").strip()
-    plan = os.environ.get("CLAUDE_PLAN", "").strip() or "unknown"
-    token_out = os.environ.get("CLAUDE_TOKEN_OUT", "").strip()
-    no_refresh = os.environ.get("CLAUDE_NO_REFRESH", "").strip() == "1"
-    _SECRETS.extend([access, refresh])
+def do_refresh(creds):
+    """Refresh via the right path for the credential source.  Returns True if
+    creds.access is now usable."""
+    if isinstance(creds, FileCreds):
+        outcome = creds.refresh_locked()
+        if outcome in ("ok", "reused"):
+            return True
+        status_line(status="nothing_written",
+                    reason="refresh_lock_busy" if outcome == "locked" else "refresh_failed_relogin_needed")
+        return False
+    if not creds.refresh:
+        status_line(status="nothing_written", reason="401_and_no_refresh_token")
+        return False
+    tokens = refresh_tokens(creds.refresh)
+    if not tokens:
+        status_line(status="nothing_written", reason="refresh_failed_relogin_needed")
+        return False
+    _SECRETS.extend([tokens.get("access_token", ""), tokens.get("refresh_token", "") or ""])
+    creds.save(tokens)  # persist BEFORE using: the old refresh token is already dead
+    creds.access = tokens["access_token"]
+    return True
 
-    if not access:
-        status_line(status="nothing_written", reason="no_access_token")
+
+def run():
+    no_refresh = os.environ.get("CLAUDE_NO_REFRESH", "").strip() == "1"
+    try:
+        creds = load_credentials()
+    except Exception as e:
+        log(f"credentials unreadable: {type(e).__name__}: {e}")
+        status_line(status="nothing_written", reason="credentials_unreadable")
         return 0
+    if creds is None:
+        status_line(status="nothing_written", reason="no_credentials", looked_at=credentials_path())
+        return 0
+    plan = os.environ.get("CLAUDE_PLAN", "").strip() or creds.plan or "unknown"
 
     now = datetime.now(timezone.utc)
     prev = last_timestamp(CSV_PATH)
@@ -326,30 +497,23 @@ def run():
         status_line(status="skipped", reason="previous_sample_under_2min_old")
         return 0
 
-    status, js = get_usage(access)
-    if status == 401:
+    refreshed = False
+    if isinstance(creds, FileCreds) and creds.about_to_expire() and not no_refresh:
+        if not do_refresh(creds):
+            return 0
+        refreshed = True
+
+    status, js = get_usage(creds.access)
+    if status == 401 and not refreshed:
         if no_refresh:
             status_line(status="nothing_written", reason="401_and_refresh_disabled")
             return 0
-        if not refresh:
-            status_line(status="nothing_written", reason="401_and_no_refresh_token")
+        if not do_refresh(creds):
             return 0
-        tokens = refresh_tokens(refresh)
-        if not tokens:
-            status_line(status="nothing_written", reason="refresh_failed_relogin_needed")
-            return 0
-        _SECRETS.append(tokens.get("access_token", ""))
-        _SECRETS.append(tokens.get("refresh_token", "") or "")
-        if token_out:
-            # Persist BEFORE the retry: the old refresh token is already dead.
-            save_rotated(token_out, tokens, refresh)
-        else:
-            log("warning: tokens rotated but CLAUDE_TOKEN_OUT unset; new refresh token is lost")
-        status, js = get_usage(tokens["access_token"])
-        if status == 401:
-            status_line(status="nothing_written", reason="401_after_refresh")
-            return 0
-
+        status, js = get_usage(creds.access)
+    if status == 401:
+        status_line(status="nothing_written", reason="401_after_refresh")
+        return 0
     if status != 200:
         status_line(status="nothing_written", reason=f"http_{status}")
         return 0
@@ -362,7 +526,8 @@ def run():
         return 0
 
     append_rows(CSV_PATH, now, plan, rows)
-    status_line(status="ok", rows=len(rows), windows=",".join(r[0] for r in rows), plan=plan)
+    status_line(status="ok", rows=len(rows), windows=",".join(r[0] for r in rows),
+                plan=plan, creds=creds.describe(), refreshed=str(refreshed).lower())
     return 0
 
 
