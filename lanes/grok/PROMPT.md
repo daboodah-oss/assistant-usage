@@ -47,6 +47,9 @@ build a sampler that records his Grok (SuperGrok) subscription usage every
 2. **`.github/workflows/sample-grok.yml`**: cron every 15 min — run
    `collect.py` with the two secrets as env vars, commit
    `data/grok/usage.csv` if it changed, push.
+   NOTE: pushing workflow files via the GitHub API needs the `workflow`
+   scope. If your push is rejected with 404, add the file through the GitHub
+   web UI instead (Add file → Create new file) and tell Jeff.
 3. **`lanes/grok/README.md`**: how it works and how Jeff re-provisions the
    login when the refresh token dies.
 
