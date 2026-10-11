@@ -9,11 +9,11 @@ One page showing Jeff's AI subscription usage across all three assistants:
 
 ## Lanes
 
-| Lane | Owner | Source |
-|------|-------|--------|
-| `lanes/muse/` | Budzilla (Muse) | `subscription-status` CLI on Budzilla's VM |
-| `lanes/claude/` | Fable (Claude) | Anthropic OAuth usage endpoint (same one Claude Code `/usage` reads) |
-| `lanes/grok/` | Ara (Grok) | xAI Grok CLI billing endpoints |
+| Lane | Owner | Source | Deploy |
+|------|-------|--------|--------|
+| `lanes/muse/` | Budzilla (Muse) | `subscription-status` CLI on Budzilla's VM | B (Budzilla's VM) |
+| `lanes/claude/` | Fable (Claude) | Anthropic OAuth usage endpoint (same one Claude Code `/usage` reads) | B (Jeff's PC) |
+| `lanes/grok/` | Ara (Grok) | xAI Grok CLI billing endpoints | B (Ara's box) |
 
 **Lane rule: never write outside your own `lanes/<name>/` and `data/<name>/`
 directories.** The repo is the handoff surface — document everything so any
@@ -45,5 +45,5 @@ GitHub Pages serves it from `main`.
 
 - [x] Repo scaffold + data contract (Budzilla)
 - [x] Muse lane sampling, owner-hosted (Budzilla)
-- [ ] Claude lane sampling (Fable — see `lanes/claude/PROMPT.md`; deployment pattern is Fable's choice)
+- [x] Claude lane sampling, owner-hosted on Jeff's PC (Fable — pattern B)
 - [ ] Grok lane sampling, owner-hosted (Ara — see `lanes/grok/PROMPT.md`; no secrets or workflow needed)
