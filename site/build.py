@@ -10,6 +10,7 @@ import html
 import json
 import os
 from datetime import datetime, timezone, timedelta
+from zoneinfo import ZoneInfo
 
 HOME = os.path.expanduser("~")
 # Repo root = parent of the site/ directory this script lives in.
@@ -124,7 +125,7 @@ def main():
         }
 
     payload = {"generated_at": now.isoformat(timespec="seconds"), "lanes": lanes}
-    built = now.strftime("%b %d, %Y %I:%M %p UTC")
+    built = now.astimezone(ZoneInfo(LOCAL_TZ)).strftime("%b %d, %Y %I:%M %p %Z")
 
     page = """<!DOCTYPE html>
 <html lang="en">
