@@ -163,6 +163,9 @@ if ('serviceWorker' in navigator) {
   .card .v small { font-size:.85rem; font-weight:400; color:#9aa3b5; }
   .card .note { font-size:.78rem; color:#9aa3b5; margin-top:4px; }
   .card.pending { opacity:.65; }
+  .card { position:relative; }
+  .card .k { padding-right:66px; }
+  .mini-gauge { position:absolute; top:8px; right:8px; width:60px; height:auto; }
   .stats { width:100%; border-collapse:collapse; margin-top:10px; font-size:.82rem; }
   .stats td { padding:5px 0; border-top:1px solid #26314a; color:#9aa3b5; }
   .stats td:last-child { text-align:right; color:#e8ecf4; font-weight:600; }
@@ -197,6 +200,17 @@ const fmtDur = h => {
   if (h < 48) { const hh=Math.floor(h), mm=Math.round((h-hh)*60); return mm? hh+'h '+String(mm).padStart(2,'0')+'m' : hh+'h'; }
   return (h/24).toFixed(1) + ' days';
 };
+function miniGauge(pct){
+  const rem = Math.max(0, 100 - pct);
+  const col = rem > 30 ? '#6fd08c' : rem > 10 ? '#f5b14c' : '#f26d6d';
+  const arcLen = Math.PI * 78;
+  return `<svg viewBox="0 0 200 132" class="mini-gauge" aria-label="${rem.toFixed(0)}% remaining">
+    <path d="M 22 112 A 78 78 0 0 1 178 112" stroke="#26314a" stroke-width="15" fill="none" stroke-linecap="round"/>
+    <path d="M 22 112 A 78 78 0 0 1 178 112" stroke="${col}" stroke-width="15" fill="none" stroke-linecap="round"
+          stroke-dasharray="${(arcLen * rem / 100).toFixed(1)} 1000"/>
+    <text x="100" y="98" text-anchor="middle" font-size="36" font-weight="700" fill="#e8ecf4">${rem.toFixed(0)}%</text>
+  </svg>`;
+}
 const cards = document.getElementById('cards');
 cards.innerHTML = Object.entries(DATA.lanes).map(([lane, L]) => {
   if (!L.latest) return `<div class="card pending"><div class="k">${L.label}</div><div class="v">—</div><div class="note">waiting for first sample</div></div>`;
@@ -204,7 +218,7 @@ cards.innerHTML = Object.entries(DATA.lanes).map(([lane, L]) => {
   const cls = s.pct >= 90 ? 'color:#f26d6d' : s.pct >= 70 ? 'color:#f5b14c' : '';
   const proj = st.hours_to_100 != null ? fmtDur(st.hours_to_100) : '—';
   const projNote = st.hours_to_100 != null ? 'at current pace' : 'flat or falling';
-  return `<div class="card"><div class="k"><span style="color:${L.color}">●</span> ${L.label}</div><div class="v" style="${cls}">${s.pct}<small>% of ${s.plan || 'limit'}</small></div>
+  return `<div class="card"><div class="k"><span style="color:${L.color}">●</span> ${L.label}</div>${miniGauge(s.pct)}<div class="v" style="${cls}">${s.pct}<small>% of ${s.plan || 'limit'}</small></div>
     <table class="stats"><tbody>
       <tr><td>Burn rate</td><td>${st.burn_per_hour != null ? st.burn_per_hour + '%/h' : '—'}</td></tr>
       <tr><td>Hits 100% in</td><td>${proj} <span class="dim">${projNote}</span></td></tr>
