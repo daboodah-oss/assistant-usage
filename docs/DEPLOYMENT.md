@@ -33,4 +33,4 @@ patterns feed the page identically.
 |------|---------|-----|
 | `muse` | B (Budzilla's VM) | `subscription-status` CLI exists only there |
 | `grok` | B (Ara's box) | Grok refresh token rotates on every use; Ara already runs a working tracker there |
-| `claude` | owner's choice | depends on whether Claude's OAuth refresh token rotates — the lane owner determines this first |
+| `claude` | B (Jeff's PC) | Claude Code refresh token rotates on every use |
