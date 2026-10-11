@@ -57,7 +57,9 @@ def main():
     lanes = {}
     for lane, label, color in LANES:
         rows = [r for r in load_lane(lane) if r["pct"] is not None]
-        weekly = [r for r in rows if r["window"] == "weekly"] or rows
+        # Headline series: the lane's weekly window. Claude writes five_hour /
+        # seven_day / weekly_<model> windows, so accept seven_day as weekly.
+        weekly = [r for r in rows if r["window"] in ("weekly", "seven_day")] or rows
         last = weekly[-1] if weekly else None
         reset_in = None
         if last and last["reset_iso"]:
