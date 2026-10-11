@@ -24,6 +24,11 @@ LANES = [
     ("claude", "Claude", "#e8935a"),
     ("grok", "Grok", "#6fd08c"),
 ]
+
+# Estimated allowance ratio vs each platform's free tier, where known.
+# Muse: Power ~= 5x the Free weekly allowance (both figures are estimates --
+# the API exposes only % of allowance, never token counts).
+FREE_EQUIV_RATIO = {"muse": 5.0}
 LOCAL_TZ = "America/Indiana/Indianapolis"
 
 
@@ -118,6 +123,8 @@ def main():
                 "burn_per_hour": round(slope, 3),
                 "hours_to_100": round(hit_h, 2) if hit_h is not None else None,
                 "samples": len(weekly),
+                **({"free_equiv": round(last_pct * FREE_EQUIV_RATIO[lane], 1)}
+                   if lane in FREE_EQUIV_RATIO and last_pct is not None else {}),
             },
             "projection": proj,
             "points": [{"t": r["ts"].isoformat(timespec="seconds"), "pct": r["pct"]}
@@ -189,7 +196,8 @@ if ('serviceWorker' in navigator) {
   <p class="foot">Each assistant samples its own platform's subscription every ~15 minutes.
   Percentages are % of that platform's own limit, so the lines are comparable as "how hot
   each subscription is running". Burn rate is a least-squares fit over each lane's headline
-  series; dashed lines project it to the reset (capped at 100%). One repo, one lane per assistant:
+  series; dashed lines project it to the reset (capped at 100%). The Muse card's
+  free-tier equivalence uses the estimated 5x Power/Free allowance ratio. One repo, one lane per assistant:
   <a href="https://github.com/daboodah-oss/assistant-usage" style="color:#5aa2ff">daboodah-oss/assistant-usage</a>.</p>
 </div>
 <script>
@@ -221,6 +229,7 @@ cards.innerHTML = Object.entries(DATA.lanes).map(([lane, L]) => {
   return `<div class="card"><div class="k"><span style="color:${L.color}">●</span> ${L.label}</div>${miniGauge(s.pct)}<div class="v" style="${cls}">${s.pct}<small>% of ${s.plan || 'limit'}</small></div>
     <table class="stats"><tbody>
       <tr><td>Burn rate</td><td>${st.burn_per_hour != null ? st.burn_per_hour + '%/h' : '—'}</td></tr>
+      ${st.free_equiv != null ? `<tr><td>Free-tier equiv.</td><td>≈${st.free_equiv}%</td></tr>` : ''}
       <tr><td>Hits 100% in</td><td>${proj} <span class="dim">${projNote}</span></td></tr>
       <tr><td>Resets in</td><td>${fmtDur(s.reset_in_h)}</td></tr>
       <tr><td>Samples</td><td>${st.samples != null ? st.samples : '—'}</td></tr>
