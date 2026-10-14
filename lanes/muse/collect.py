@@ -57,6 +57,13 @@ def main():
 
     m = re.search(r"Usage:\s*(\d+(?:\.\d+)?)\s*%", text)
     usage_pct = m.group(1) if m else ""
+    if not usage_pct:
+        # Provider returned no usage figure (e.g. "status is unavailable").
+        # Skip the row -- a missing sample is honest; a blank/free row is
+        # fabricated data. (DATA_CONTRACT: unknown usage is never zero.)
+        print(f"collector: no usage % in output, skipping: {text[:120]}",
+              file=sys.stderr)
+        return 1
 
     plan = "free"
     pm = re.search(r"(?i)\b(power|pro|plus|team|enterprise)\b", text)
