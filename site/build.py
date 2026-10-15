@@ -123,7 +123,8 @@ def main():
                 "burn_per_hour": round(slope, 3),
                 "hours_to_100": round(hit_h, 2) if hit_h is not None else None,
                 "samples": len(weekly),
-                **({"free_equiv": round(last_pct * FREE_EQUIV_RATIO[lane], 1)}
+                **({"free_equiv": round(last_pct * FREE_EQUIV_RATIO[lane], 1),
+                    "free_marker": round(100.0 / FREE_EQUIV_RATIO[lane], 1)}
                    if lane in FREE_EQUIV_RATIO and last_pct is not None else {}),
             },
             "projection": proj,
@@ -165,18 +166,23 @@ if ('serviceWorker' in navigator) {
   .sub { color:#9aa3b5; font-size:.85rem; margin:0 0 20px; }
   .cards { display:grid; grid-template-columns:repeat(auto-fit,minmax(220px,1fr)); gap:12px; margin-bottom:20px; }
   .card { background:#182032; border:1px solid #26314a; border-radius:12px; padding:14px 16px; }
-  .card .k { font-size:.72rem; text-transform:uppercase; letter-spacing:.06em; color:#9aa3b5; margin-bottom:6px; }
-  .card .v { font-size:1.5rem; font-weight:700; }
-  .card .v small { font-size:.85rem; font-weight:400; color:#9aa3b5; }
+  .card .k { font-size:.72rem; text-transform:uppercase; letter-spacing:.06em; color:#9aa3b5; margin-bottom:8px; }
   .card .note { font-size:.78rem; color:#9aa3b5; margin-top:4px; }
   .card.pending { opacity:.65; }
-  .card { position:relative; }
-  .card .k { padding-right:66px; }
-  .mini-gauge { position:absolute; top:8px; right:8px; width:60px; height:auto; }
-  .stats { width:100%; border-collapse:collapse; margin-top:10px; font-size:.82rem; }
-  .stats td { padding:5px 0; border-top:1px solid #26314a; color:#9aa3b5; }
-  .stats td:last-child { text-align:right; color:#e8ecf4; font-weight:600; }
-  .stats .dim { font-weight:400; color:#9aa3b5; font-size:.75rem; }
+  .toprow { display:flex; flex-wrap:wrap; gap:10px 16px; align-items:flex-start; }
+  .bignum { font-size:3.2rem; font-weight:700; line-height:1; white-space:nowrap; }
+  .bignum small { font-size:.95rem; font-weight:400; color:#9aa3b5; }
+  .pills { flex:1 1 200px; display:flex; flex-wrap:wrap; gap:6px; align-content:flex-start; padding-top:6px; }
+  .chip { background:#131b2c; border:1px solid #26314a; border-radius:999px; padding:5px 11px; font-size:.8rem; color:#9aa3b5; }
+  .chip b { color:#e8ecf4; font-weight:600; }
+  .fuelwrap { position:relative; margin-top:26px; }
+  .fuelbar { height:14px; border-radius:7px; overflow:hidden;
+             background:linear-gradient(90deg, rgba(111,208,140,.16) 0 70%, rgba(245,177,76,.20) 70% 90%, rgba(242,109,109,.24) 90% 100%); }
+  .fuelbar > div { height:100%; border-radius:7px; }
+  .freemark { position:absolute; top:-4px; width:2px; height:22px; background:#e8ecf4; opacity:.85; }
+  .freemark span { position:absolute; bottom:25px; left:50%; transform:translateX(-50%); font-size:.65rem; letter-spacing:.08em; color:#9aa3b5; text-transform:uppercase; }
+  .barlab { display:flex; justify-content:space-between; font-size:.75rem; color:#9aa3b5; margin-top:6px; }
+  .barlab b { color:#e8ecf4; }
   .panel { background:#131b2c; border:1px solid #26314a; border-radius:14px; padding:18px; margin-bottom:20px; }
   .panel h2 { font-size:1.05rem; margin:0 0 12px; }
   canvas { width:100% !important; height:360px !important; }
@@ -197,7 +203,9 @@ if ('serviceWorker' in navigator) {
   Percentages are % of that platform's own limit, so the lines are comparable as "how hot
   each subscription is running". Burn rate is a least-squares fit over each lane's headline
   series; dashed lines project it to the reset (capped at 100%). The Muse card's
-  free-tier equivalence uses the estimated 5x Power/Free allowance ratio. One repo, one lane per assistant:
+  free-tier equivalence uses the estimated 5x Power/Free allowance ratio, and the
+  "Free" tick on its bar marks where one full Free-tier week runs out (20% of the
+  Power bar). One repo, one lane per assistant:
   <a href="https://github.com/daboodah-oss/assistant-usage" style="color:#5aa2ff">daboodah-oss/assistant-usage</a>.</p>
 </div>
 <script>
@@ -208,32 +216,29 @@ const fmtDur = h => {
   if (h < 48) { const hh=Math.floor(h), mm=Math.round((h-hh)*60); return mm? hh+'h '+String(mm).padStart(2,'0')+'m' : hh+'h'; }
   return (h/24).toFixed(1) + ' days';
 };
-function miniGauge(pct){
-  const rem = Math.max(0, 100 - pct);
-  const col = rem > 30 ? '#6fd08c' : rem > 10 ? '#f5b14c' : '#f26d6d';
-  const arcLen = Math.PI * 78;
-  return `<svg viewBox="0 0 200 132" class="mini-gauge" aria-label="${rem.toFixed(0)}% remaining">
-    <path d="M 22 112 A 78 78 0 0 1 178 112" stroke="#26314a" stroke-width="15" fill="none" stroke-linecap="round"/>
-    <path d="M 22 112 A 78 78 0 0 1 178 112" stroke="${col}" stroke-width="15" fill="none" stroke-linecap="round"
-          stroke-dasharray="${(arcLen * rem / 100).toFixed(1)} 1000"/>
-    <text x="100" y="98" text-anchor="middle" font-size="36" font-weight="700" fill="#e8ecf4">${rem.toFixed(0)}%</text>
-  </svg>`;
-}
+function statusColor(pct){ return pct >= 90 ? '#f26d6d' : pct >= 70 ? '#f5b14c' : '#6fd08c'; }
 const cards = document.getElementById('cards');
 cards.innerHTML = Object.entries(DATA.lanes).map(([lane, L]) => {
-  if (!L.latest) return `<div class="card pending"><div class="k">${L.label}</div><div class="v">—</div><div class="note">waiting for first sample</div></div>`;
+  if (!L.latest) return `<div class="card pending"><div class="k">${L.label}</div><div class="bignum">—</div><div class="note">waiting for first sample</div></div>`;
   const s = L.latest, st = L.stats || {};
   const cls = s.pct >= 90 ? 'color:#f26d6d' : s.pct >= 70 ? 'color:#f5b14c' : '';
-  const proj = st.hours_to_100 != null ? fmtDur(st.hours_to_100) : '—';
-  const projNote = st.hours_to_100 != null ? 'at current pace' : 'flat or falling';
-  return `<div class="card"><div class="k"><span style="color:${L.color}">●</span> ${L.label}</div>${miniGauge(s.pct)}<div class="v" style="${cls}">${s.pct}<small>% of ${s.plan || 'limit'}</small></div>
-    <table class="stats"><tbody>
-      <tr><td>Burn rate</td><td>${st.burn_per_hour != null ? st.burn_per_hour + '%/h' : '—'}</td></tr>
-      ${st.free_equiv != null ? `<tr><td>Free-tier equiv.</td><td>≈${st.free_equiv}%</td></tr>` : ''}
-      <tr><td>Hits 100% in</td><td>${proj} <span class="dim">${projNote}</span></td></tr>
-      <tr><td>Resets in</td><td>${fmtDur(s.reset_in_h)}</td></tr>
-      <tr><td>Samples</td><td>${st.samples != null ? st.samples : '—'}</td></tr>
-    </tbody></table></div>`;
+  const rem = Math.max(0, 100 - s.pct);
+  const plan = s.plan ? (s.plan === s.plan.toLowerCase() ? s.plan.charAt(0).toUpperCase() + s.plan.slice(1) : s.plan) : 'limit';
+  const chips = [
+    `<span class="chip">Burn <b>${st.burn_per_hour != null ? st.burn_per_hour + '%/h' : '—'}</b></span>`,
+    st.hours_to_100 != null
+      ? `<span class="chip">100% in <b>${fmtDur(st.hours_to_100)}</b></span>`
+      : `<span class="chip">100% in <b>—</b> flat or falling</span>`,
+    `<span class="chip">Resets <b>${fmtDur(s.reset_in_h)}</b></span>`,
+    st.free_equiv != null ? `<span class="chip">Free equiv <b>≈${st.free_equiv}%</b></span>` : '',
+    `<span class="chip"><b>${st.samples != null ? st.samples : '—'}</b> samples</span>`
+  ].join('');
+  const mark = st.free_marker != null
+    ? `<div class="freemark" style="left:${st.free_marker}%" title="One full Free-tier week ends here (${st.free_marker}% of the Power bar)"><span>Free</span></div>` : '';
+  return `<div class="card"><div class="k"><span style="color:${L.color}">●</span> ${L.label}</div>
+    <div class="toprow"><div class="bignum" style="${cls}">${s.pct}<small>% of ${plan}</small></div><div class="pills">${chips}</div></div>
+    <div class="fuelwrap">${mark}<div class="fuelbar"><div style="width:${s.pct}%; background:${statusColor(s.pct)}"></div></div></div>
+    <div class="barlab"><span>0%</span><span><b>${rem.toFixed(0)}%</b> remaining</span><span>100%</span></div></div>`;
 }).join('');
 const datasets = Object.entries(DATA.lanes)
   .filter(([lane, L]) => L.points.length)
