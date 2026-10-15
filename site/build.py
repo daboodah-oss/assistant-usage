@@ -169,11 +169,11 @@ if ('serviceWorker' in navigator) {
   .card .k { font-size:.72rem; text-transform:uppercase; letter-spacing:.06em; color:#9aa3b5; margin-bottom:8px; }
   .card .note { font-size:.78rem; color:#9aa3b5; margin-top:4px; }
   .card.pending { opacity:.65; }
-  .toprow { display:flex; flex-wrap:wrap; gap:10px 16px; align-items:flex-start; }
-  .bignum { font-size:3.2rem; font-weight:700; line-height:1; white-space:nowrap; }
-  .bignum small { font-size:.95rem; font-weight:400; color:#9aa3b5; }
-  .pills { flex:1 1 200px; display:flex; flex-wrap:wrap; gap:6px; align-content:flex-start; padding-top:6px; }
-  .chip { background:#131b2c; border:1px solid #26314a; border-radius:999px; padding:5px 11px; font-size:.8rem; color:#9aa3b5; }
+  .toprow { display:grid; grid-template-columns:118px 1fr; gap:14px; align-items:stretch; }
+  .bignum { font-size:3.2rem; font-weight:700; line-height:1; }
+  .bignum small { display:block; font-size:.82rem; font-weight:400; color:#9aa3b5; margin-top:4px; line-height:1.3; }
+  .pills { display:grid; grid-template-columns:1fr 1fr; grid-template-rows:1fr 1fr; gap:6px; }
+  .chip { display:flex; align-items:center; background:#131b2c; border:1px solid #26314a; border-radius:999px; padding:5px 11px; font-size:.8rem; color:#9aa3b5; }
   .chip b { color:#e8ecf4; font-weight:600; }
   .fuelwrap { position:relative; margin-top:26px; }
   .fuelbar { height:14px; border-radius:7px; overflow:hidden;
@@ -224,21 +224,24 @@ cards.innerHTML = Object.entries(DATA.lanes).map(([lane, L]) => {
   const cls = s.pct >= 90 ? 'color:#f26d6d' : s.pct >= 70 ? 'color:#f5b14c' : '';
   const rem = Math.max(0, 100 - s.pct);
   const plan = s.plan ? (s.plan === s.plan.toLowerCase() ? s.plan.charAt(0).toUpperCase() + s.plan.slice(1) : s.plan) : 'limit';
+  const fourth = st.free_equiv != null
+    ? `<span class="chip">Free equiv <b>≈${st.free_equiv}%</b></span>`
+    : `<span class="chip"><b>${st.samples != null ? st.samples : '—'}</b> samples</span>`;
   const chips = [
     `<span class="chip">Burn <b>${st.burn_per_hour != null ? st.burn_per_hour + '%/h' : '—'}</b></span>`,
     st.hours_to_100 != null
       ? `<span class="chip">100% in <b>${fmtDur(st.hours_to_100)}</b></span>`
       : `<span class="chip">100% in <b>—</b> flat or falling</span>`,
     `<span class="chip">Resets <b>${fmtDur(s.reset_in_h)}</b></span>`,
-    st.free_equiv != null ? `<span class="chip">Free equiv <b>≈${st.free_equiv}%</b></span>` : '',
-    `<span class="chip"><b>${st.samples != null ? st.samples : '—'}</b> samples</span>`
+    fourth
   ].join('');
+  const samplesNote = st.free_equiv != null && st.samples != null ? ` · ${st.samples} samples` : '';
   const mark = st.free_marker != null
     ? `<div class="freemark" style="left:${st.free_marker}%" title="One full Free-tier week ends here (${st.free_marker}% of the Power bar)"><span>Free</span></div>` : '';
   return `<div class="card"><div class="k"><span style="color:${L.color}">●</span> ${L.label}</div>
     <div class="toprow"><div class="bignum" style="${cls}">${s.pct}<small>% of ${plan}</small></div><div class="pills">${chips}</div></div>
     <div class="fuelwrap">${mark}<div class="fuelbar"><div style="width:${s.pct}%; background:${statusColor(s.pct)}"></div></div></div>
-    <div class="barlab"><span>0%</span><span><b>${rem.toFixed(0)}%</b> remaining</span><span>100%</span></div></div>`;
+    <div class="barlab"><span>0%</span><span><b>${rem.toFixed(0)}%</b> remaining${samplesNote}</span><span>100%</span></div></div>`;
 }).join('');
 const datasets = Object.entries(DATA.lanes)
   .filter(([lane, L]) => L.points.length)
