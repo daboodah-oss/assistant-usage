@@ -175,7 +175,7 @@ if ('serviceWorker' in navigator) {
   .k .plan { text-transform:none; letter-spacing:0; }
   .pills { display:grid; grid-template-columns:1fr 1fr; grid-template-rows:1fr 1fr; gap:6px; }
   .chip { display:flex; align-items:center; white-space:nowrap; overflow:hidden; background:#131b2c; border:1px solid #26314a; border-radius:999px; padding:4px 10px; font-size:.78rem; color:#9aa3b5; }
-  .chip b { color:#e8ecf4; font-weight:600; }
+  .chip b { color:#e8ecf4; font-weight:600; margin:0 .35em; }
   .fuelwrap { position:relative; margin-top:26px; }
   .fuelbar { height:14px; border-radius:7px; overflow:hidden;
              background:linear-gradient(90deg, rgba(111,208,140,.16) 0 70%, rgba(245,177,76,.20) 70% 90%, rgba(242,109,109,.24) 90% 100%); }
@@ -227,7 +227,7 @@ cards.innerHTML = Object.entries(DATA.lanes).map(([lane, L]) => {
   const plan = s.plan ? (s.plan === s.plan.toLowerCase() ? s.plan.charAt(0).toUpperCase() + s.plan.slice(1) : s.plan) : 'limit';
   const fourth = st.free_equiv != null
     ? `<span class="chip">Free equiv <b>≈${st.free_equiv}%</b></span>`
-    : `<span class="chip"><b>${st.samples != null ? st.samples : '—'}</b> samples</span>`;
+    : `<span class="chip">Samples <b>${st.samples != null ? st.samples : '—'}</b></span>`;
   const chips = [
     `<span class="chip">Burn <b>${st.burn_per_hour != null ? st.burn_per_hour + '%/h' : '—'}</b></span>`,
     st.hours_to_100 != null
