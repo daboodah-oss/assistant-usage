@@ -1,0 +1,214 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Tile mockups — Assistant Usage</title>
+<style>
+  * { box-sizing: border-box; }
+  body { margin:0; font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+         background:#0f1420; color:#e8ecf4; }
+  .wrap { max-width: 880px; margin: 0 auto; padding: 20px 16px 48px; }
+  h1 { font-size: 1.5rem; margin: 4px 0 2px; }
+  .sub { color:#9aa3b5; font-size:.9rem; margin: 0 0 8px; }
+  h2 { font-size: 1.15rem; margin: 34px 0 2px; }
+  .why { color:#9aa3b5; font-size:.88rem; margin: 0 0 14px; max-width: 640px; }
+  .cards { display:grid; gap:14px; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); }
+  .card { background:#182032; border:1px solid #26314a; border-radius:12px; padding:16px; }
+  .k { font-size:.78rem; letter-spacing:.12em; color:#9aa3b5; text-transform:uppercase; margin-bottom:10px; }
+  .lab { font-size:.68rem; letter-spacing:.08em; color:#9aa3b5; text-transform:uppercase; }
+  .val { font-size:1.02rem; font-weight:600; margin-top:1px; }
+  .grid { display:grid; grid-template-columns:1fr 1fr; gap:11px 14px; }
+  .chip { display:inline-block; background:#131b2c; border:1px solid #26314a; border-radius:999px;
+          padding:5px 11px; font-size:.8rem; margin: 0 6px 6px 0; }
+  .chip b { font-weight:600; }
+  .chip .lab { text-transform:none; letter-spacing:0; font-size:.8rem; }
+  .freechip { display:inline-block; margin-top:11px; background:#131b2c; border:1px solid #26314a;
+              border-radius:8px; padding:5px 10px; font-size:.8rem; color:#9aa3b5; }
+  .freechip b { color:#e8ecf4; }
+  /* Variant A: ring */
+  .ringrow { display:flex; gap:16px; align-items:center; }
+  .ringwrap { position:relative; width:112px; height:112px; flex:0 0 auto; }
+  .ringcenter { position:absolute; inset:0; display:flex; flex-direction:column;
+                align-items:center; justify-content:center; }
+  .ringcenter .big { font-size:1.65rem; font-weight:700; line-height:1; }
+  .ringcenter .cap { font-size:.62rem; letter-spacing:.14em; color:#9aa3b5; margin-top:3px; }
+  /* Variant B: big number + fuel bar */
+  .bignum { font-size:3.4rem; font-weight:700; line-height:1; }
+  .bignum small { font-size:1rem; font-weight:400; color:#9aa3b5; }
+  .fuelbar { height:14px; border-radius:7px; margin:14px 0 6px; overflow:hidden;
+             background: linear-gradient(90deg, rgba(111,208,140,.18) 0 70%, rgba(245,177,76,.22) 70% 90%, rgba(242,109,109,.25) 90% 100%); }
+  .fuelbar > div { height:100%; border-radius:7px; }
+  .barlab { display:flex; justify-content:space-between; font-size:.75rem; color:#9aa3b5; margin-bottom:12px; }
+  /* Variant C: gauge hero */
+  .gaugehero { text-align:center; }
+  .gaugehero .headline { font-size:1.3rem; font-weight:600; margin: 2px 0 14px; }
+  .gaugehero .headline span { color:#9aa3b5; font-weight:400; font-size:.95rem; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>Assistant Usage — tile mockups</h1>
+  <p class="sub">Live page unchanged. Same data as your Oct 14, 9:33 PM screenshot. Pick A, B, or C and I'll rebuild the real cards in that style.</p>
+
+  <!-- ============ VARIANT A ============ -->
+  <h2>A — Progress ring</h2>
+  <p class="why">The mobile-app standard (Apple Fitness / Strava style): the headline number lives inside the ring, so the % reads at a glance. Stats move to a roomier two-column grid with bigger values.</p>
+  <div class="cards">
+
+    <div class="card">
+      <div class="k"><span style="color:#5aa2ff">●</span> Muse</div>
+      <div class="ringrow">
+        <div class="ringwrap">
+          <svg width="112" height="112" viewBox="0 0 120 120">
+            <circle cx="60" cy="60" r="50" stroke="#26314a" stroke-width="11" fill="none"/>
+            <circle cx="60" cy="60" r="50" stroke="#6fd08c" stroke-width="11" fill="none" stroke-linecap="round"
+                    stroke-dasharray="59.7 314.2" transform="rotate(-90 60 60)"/>
+          </svg>
+          <div class="ringcenter"><div class="big">19%</div><div class="cap">USED</div></div>
+        </div>
+        <div class="grid" style="flex:1">
+          <div><div class="lab">Plan</div><div class="val">Power</div></div>
+          <div><div class="lab">Burn rate</div><div class="val">0.138%/h</div></div>
+          <div><div class="lab">Hits 100% in</div><div class="val">24.5 days</div></div>
+          <div><div class="lab">Resets in</div><div class="val">2.1 days</div></div>
+        </div>
+      </div>
+      <span class="freechip">Free-tier equiv. <b>≈95%</b> · 435 samples</span>
+    </div>
+
+    <div class="card">
+      <div class="k"><span style="color:#e8935a">●</span> Claude</div>
+      <div class="ringrow">
+        <div class="ringwrap">
+          <svg width="112" height="112" viewBox="0 0 120 120">
+            <circle cx="60" cy="60" r="50" stroke="#26314a" stroke-width="11" fill="none"/>
+            <circle cx="60" cy="60" r="50" stroke="#6fd08c" stroke-width="11" fill="none" stroke-linecap="round"
+                    stroke-dasharray="34.6 314.2" transform="rotate(-90 60 60)"/>
+          </svg>
+          <div class="ringcenter"><div class="big">11%</div><div class="cap">USED</div></div>
+        </div>
+        <div class="grid" style="flex:1">
+          <div><div class="lab">Plan</div><div class="val">Pro</div></div>
+          <div><div class="lab">Burn rate</div><div class="val">−0.408%/h</div></div>
+          <div><div class="lab">Hits 100% in</div><div class="val">— falling</div></div>
+          <div><div class="lab">Resets in</div><div class="val">4.9 days</div></div>
+        </div>
+      </div>
+      <span class="freechip">374 samples</span>
+    </div>
+
+    <div class="card">
+      <div class="k"><span style="color:#6fd08c">●</span> Grok</div>
+      <div class="ringrow">
+        <div class="ringwrap">
+          <svg width="112" height="112" viewBox="0 0 120 120">
+            <circle cx="60" cy="60" r="50" stroke="#26314a" stroke-width="11" fill="none"/>
+            <circle cx="60" cy="60" r="50" stroke="#6fd08c" stroke-width="11" fill="none" stroke-linecap="round"
+                    stroke-dasharray="40.8 314.2" transform="rotate(-90 60 60)"/>
+          </svg>
+          <div class="ringcenter"><div class="big">13%</div><div class="cap">USED</div></div>
+        </div>
+        <div class="grid" style="flex:1">
+          <div><div class="lab">Plan</div><div class="val">SuperGrok Heavy</div></div>
+          <div><div class="lab">Burn rate</div><div class="val">0.083%/h</div></div>
+          <div><div class="lab">Hits 100% in</div><div class="val">43.7 days</div></div>
+          <div><div class="lab">Resets in</div><div class="val">35h 18m</div></div>
+        </div>
+      </div>
+      <span class="freechip">409 samples</span>
+    </div>
+  </div>
+
+  <!-- ============ VARIANT B ============ -->
+  <h2>B — Big number + fuel bar</h2>
+  <p class="why">The KPI-card pattern from BI dashboards: one huge numeral does the talking, and a linear "bullet" bar with green / amber / red zones shows headroom. Most compact of the three, and the easiest to compare across assistants at a glance.</p>
+  <div class="cards">
+
+    <div class="card">
+      <div class="k"><span style="color:#5aa2ff">●</span> Muse</div>
+      <div class="bignum">19<small>% of Power</small></div>
+      <div class="fuelbar"><div style="width:19%; background:#6fd08c"></div></div>
+      <div class="barlab"><span>0%</span><span><b style="color:#e8ecf4">81%</b> remaining</span><span>100%</span></div>
+      <span class="chip"><span class="lab">Burn </span><b>0.138%/h</b></span><span class="chip"><span class="lab">100% in </span><b>24.5 days</b></span><span class="chip"><span class="lab">Resets </span><b>2.1 days</b></span><span class="chip"><span class="lab">Free equiv </span><b>≈95%</b></span><span class="chip"><b>435</b><span class="lab"> samples</span></span>
+    </div>
+
+    <div class="card">
+      <div class="k"><span style="color:#e8935a">●</span> Claude</div>
+      <div class="bignum">11<small>% of Pro</small></div>
+      <div class="fuelbar"><div style="width:11%; background:#6fd08c"></div></div>
+      <div class="barlab"><span>0%</span><span><b style="color:#e8ecf4">89%</b> remaining</span><span>100%</span></div>
+      <span class="chip"><span class="lab">Burn </span><b>−0.408%/h</b></span><span class="chip"><span class="lab">100% in </span><b>— falling</b></span><span class="chip"><span class="lab">Resets </span><b>4.9 days</b></span><span class="chip"><b>374</b><span class="lab"> samples</span></span>
+    </div>
+
+    <div class="card">
+      <div class="k"><span style="color:#6fd08c">●</span> Grok</div>
+      <div class="bignum">13<small>% of SuperGrok Heavy</small></div>
+      <div class="fuelbar"><div style="width:13%; background:#6fd08c"></div></div>
+      <div class="barlab"><span>0%</span><span><b style="color:#e8ecf4">87%</b> remaining</span><span>100%</span></div>
+      <span class="chip"><span class="lab">Burn </span><b>0.083%/h</b></span><span class="chip"><span class="lab">100% in </span><b>43.7 days</b></span><span class="chip"><span class="lab">Resets </span><b>35h 18m</b></span><span class="chip"><b>409</b><span class="lab"> samples</span></span>
+    </div>
+  </div>
+
+  <!-- ============ VARIANT C ============ -->
+  <h2>C — Gauge hero</h2>
+  <p class="why">Your Muse dashboard's fuel gauge, promoted from corner ornament to the main visual — big, centered, showing % remaining. The used % becomes the headline under it, and the stats get a roomier two-column grid.</p>
+  <div class="cards">
+
+    <div class="card gaugehero">
+      <div class="k" style="text-align:left"><span style="color:#5aa2ff">●</span> Muse</div>
+      <svg viewBox="0 0 200 132" style="width:210px; max-width:80%">
+        <path d="M 22 112 A 78 78 0 0 1 178 112" stroke="#26314a" stroke-width="15" fill="none" stroke-linecap="round"/>
+        <path d="M 22 112 A 78 78 0 0 1 178 112" stroke="#6fd08c" stroke-width="15" fill="none" stroke-linecap="round" stroke-dasharray="198.5 1000"/>
+        <text x="100" y="92" text-anchor="middle" font-size="34" font-weight="700" fill="#e8ecf4">81%</text>
+        <text x="100" y="112" text-anchor="middle" font-size="11" fill="#9aa3b5">remaining</text>
+      </svg>
+      <div class="headline">19% <span>of Power used</span></div>
+      <div class="grid" style="text-align:left">
+        <div><div class="lab">Burn rate</div><div class="val">0.138%/h</div></div>
+        <div><div class="lab">Free-tier equiv.</div><div class="val">≈95%</div></div>
+        <div><div class="lab">Hits 100% in</div><div class="val">24.5 days</div></div>
+        <div><div class="lab">Resets in</div><div class="val">2.1 days</div></div>
+      </div>
+      <div style="text-align:left"><span class="freechip">435 samples</span></div>
+    </div>
+
+    <div class="card gaugehero">
+      <div class="k" style="text-align:left"><span style="color:#e8935a">●</span> Claude</div>
+      <svg viewBox="0 0 200 132" style="width:210px; max-width:80%">
+        <path d="M 22 112 A 78 78 0 0 1 178 112" stroke="#26314a" stroke-width="15" fill="none" stroke-linecap="round"/>
+        <path d="M 22 112 A 78 78 0 0 1 178 112" stroke="#6fd08c" stroke-width="15" fill="none" stroke-linecap="round" stroke-dasharray="218.1 1000"/>
+        <text x="100" y="92" text-anchor="middle" font-size="34" font-weight="700" fill="#e8ecf4">89%</text>
+        <text x="100" y="112" text-anchor="middle" font-size="11" fill="#9aa3b5">remaining</text>
+      </svg>
+      <div class="headline">11% <span>of Pro used</span></div>
+      <div class="grid" style="text-align:left">
+        <div><div class="lab">Burn rate</div><div class="val">−0.408%/h</div></div>
+        <div><div class="lab">Hits 100% in</div><div class="val">— falling</div></div>
+        <div><div class="lab">Resets in</div><div class="val">4.9 days</div></div>
+        <div><div class="lab">Samples</div><div class="val">374</div></div>
+      </div>
+    </div>
+
+    <div class="card gaugehero">
+      <div class="k" style="text-align:left"><span style="color:#6fd08c">●</span> Grok</div>
+      <svg viewBox="0 0 200 132" style="width:210px; max-width:80%">
+        <path d="M 22 112 A 78 78 0 0 1 178 112" stroke="#26314a" stroke-width="15" fill="none" stroke-linecap="round"/>
+        <path d="M 22 112 A 78 78 0 0 1 178 112" stroke="#6fd08c" stroke-width="15" fill="none" stroke-linecap="round" stroke-dasharray="213.2 1000"/>
+        <text x="100" y="92" text-anchor="middle" font-size="34" font-weight="700" fill="#e8ecf4">87%</text>
+        <text x="100" y="112" text-anchor="middle" font-size="11" fill="#9aa3b5">remaining</text>
+      </svg>
+      <div class="headline">13% <span>of SuperGrok Heavy used</span></div>
+      <div class="grid" style="text-align:left">
+        <div><div class="lab">Burn rate</div><div class="val">0.083%/h</div></div>
+        <div><div class="lab">Hits 100% in</div><div class="val">43.7 days</div></div>
+        <div><div class="lab">Resets in</div><div class="val">35h 18m</div></div>
+        <div><div class="lab">Samples</div><div class="val">409</div></div>
+      </div>
+    </div>
+  </div>
+
+  <p class="sub" style="margin-top:36px">All three keep the same data and the green / amber / red thresholds (amber under 30% remaining, red under 10%). The combined chart below the cards stays as-is in every variant.</p>
+</div>
+</body>
+</html>
