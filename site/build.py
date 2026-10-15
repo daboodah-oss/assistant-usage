@@ -169,11 +169,12 @@ if ('serviceWorker' in navigator) {
   .card .k { font-size:.72rem; text-transform:uppercase; letter-spacing:.06em; color:#9aa3b5; margin-bottom:8px; }
   .card .note { font-size:.78rem; color:#9aa3b5; margin-top:4px; }
   .card.pending { opacity:.65; }
-  .toprow { display:grid; grid-template-columns:118px 1fr; gap:14px; align-items:stretch; }
-  .bignum { font-size:3.2rem; font-weight:700; line-height:1; }
-  .bignum small { display:block; font-size:.82rem; font-weight:400; color:#9aa3b5; margin-top:4px; line-height:1.3; }
+  .toprow { display:grid; grid-template-columns:auto 1fr; gap:12px; align-items:stretch; }
+  .bignum { font-size:3.2rem; font-weight:700; line-height:1; align-self:end; }
+  .bignum .pct { font-size:1.6rem; font-weight:700; }
+  .k .plan { text-transform:none; letter-spacing:0; }
   .pills { display:grid; grid-template-columns:1fr 1fr; grid-template-rows:1fr 1fr; gap:6px; }
-  .chip { display:flex; align-items:center; background:#131b2c; border:1px solid #26314a; border-radius:999px; padding:5px 11px; font-size:.8rem; color:#9aa3b5; }
+  .chip { display:flex; align-items:center; white-space:nowrap; overflow:hidden; background:#131b2c; border:1px solid #26314a; border-radius:999px; padding:4px 10px; font-size:.78rem; color:#9aa3b5; }
   .chip b { color:#e8ecf4; font-weight:600; }
   .fuelwrap { position:relative; margin-top:26px; }
   .fuelbar { height:14px; border-radius:7px; overflow:hidden;
@@ -231,15 +232,15 @@ cards.innerHTML = Object.entries(DATA.lanes).map(([lane, L]) => {
     `<span class="chip">Burn <b>${st.burn_per_hour != null ? st.burn_per_hour + '%/h' : '—'}</b></span>`,
     st.hours_to_100 != null
       ? `<span class="chip">100% in <b>${fmtDur(st.hours_to_100)}</b></span>`
-      : `<span class="chip">100% in <b>—</b> flat or falling</span>`,
+      : `<span class="chip">100% in <b>—</b> ${st.burn_per_hour < 0 ? 'falling' : 'flat'}</span>`,
     `<span class="chip">Resets <b>${fmtDur(s.reset_in_h)}</b></span>`,
     fourth
   ].join('');
   const samplesNote = st.free_equiv != null && st.samples != null ? ` · ${st.samples} samples` : '';
   const mark = st.free_marker != null
     ? `<div class="freemark" style="left:${st.free_marker}%" title="One full Free-tier week ends here (${st.free_marker}% of the Power bar)"><span>Free</span></div>` : '';
-  return `<div class="card"><div class="k"><span style="color:${L.color}">●</span> ${L.label}</div>
-    <div class="toprow"><div class="bignum" style="${cls}">${s.pct}<small>% of ${plan}</small></div><div class="pills">${chips}</div></div>
+  return `<div class="card"><div class="k"><span style="color:${L.color}">●</span> ${L.label} <span class="plan">– ${plan}</span></div>
+    <div class="toprow"><div class="bignum" style="${cls}">${s.pct}<span class="pct">%</span></div><div class="pills">${chips}</div></div>
     <div class="fuelwrap">${mark}<div class="fuelbar"><div style="width:${s.pct}%; background:${statusColor(s.pct)}"></div></div></div>
     <div class="barlab"><span>0%</span><span><b>${rem.toFixed(0)}%</b> remaining${samplesNote}</span><span>100%</span></div></div>`;
 }).join('');
