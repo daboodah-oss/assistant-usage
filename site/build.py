@@ -91,6 +91,22 @@ def main():
             except Exception:
                 pass
         slope = linreg_slope_pct_per_hour(weekly)
+        # Time bar: fraction of the current window already elapsed. All
+        # current lanes run 7-day windows; keyed off the window name so a
+        # future lane with a different window simply gets no time bar.
+        WINDOW_HOURS = {"weekly": 168.0, "seven_day": 168.0}
+        time_pct = time_start = time_reset = None
+        win_name = weekly[0]["window"] if weekly else None
+        if last and reset_in is not None and win_name in WINDOW_HOURS:
+            total_h = WINDOW_HOURS[win_name]
+            time_pct = round(min(100.0, max(0.0, (1 - reset_in / total_h) * 100)), 1)
+            try:
+                rt = datetime.fromisoformat(last["reset_iso"])
+                et = ZoneInfo(LOCAL_TZ)
+                time_start = (rt - timedelta(hours=total_h)).astimezone(et).strftime("%b %d")
+                time_reset = rt.astimezone(et).strftime("%b %d · %I:%M %p")
+            except Exception:
+                time_pct = time_start = time_reset = None
         last_pct = last["pct"] if last else None
         hit_h = ((100.0 - last_pct) / slope
                  if (last and slope > 0 and last_pct < 100) else None)
@@ -123,6 +139,7 @@ def main():
                 "burn_per_hour": round(slope, 3),
                 "hours_to_100": round(hit_h, 2) if hit_h is not None else None,
                 "samples": len(weekly),
+                "time_pct": time_pct, "time_start": time_start, "time_reset": time_reset,
                 **({"free_equiv": round(last_pct * FREE_EQUIV_RATIO[lane], 1),
                     "free_marker": round(100.0 / FREE_EQUIV_RATIO[lane], 1)}
                    if lane in FREE_EQUIV_RATIO and last_pct is not None else {}),
@@ -184,6 +201,9 @@ if ('serviceWorker' in navigator) {
   .freemark span { position:absolute; bottom:25px; left:50%; transform:translateX(-50%); font-size:.65rem; letter-spacing:.08em; color:#9aa3b5; text-transform:uppercase; }
   .barlab { display:flex; justify-content:space-between; font-size:.75rem; color:#9aa3b5; margin-top:6px; }
   .barlab b { color:#e8ecf4; }
+  .timebar { height:6px; border-radius:3px; background:#1d2740; margin-top:5px; overflow:hidden; }
+  .timebar > div { height:100%; border-radius:3px; opacity:.55; }
+  .timelab { display:flex; justify-content:space-between; font-size:.68rem; color:#66708a; margin-top:4px; }
   .panel { background:#131b2c; border:1px solid #26314a; border-radius:14px; padding:18px; margin-bottom:20px; }
   .panel h2 { font-size:1.05rem; margin:0 0 12px; }
   canvas { width:100% !important; height:360px !important; }
@@ -241,8 +261,8 @@ cards.innerHTML = Object.entries(DATA.lanes).map(([lane, L]) => {
     ? `<div class="freemark" style="left:${st.free_marker}%" title="One full Free-tier week ends here (${st.free_marker}% of the Power bar)"><span>Free</span></div>` : '';
   return `<div class="card"><div class="k"><span style="color:${L.color}">●</span> ${L.label} <span class="plan">– ${plan}</span></div>
     <div class="toprow"><div class="bignum" style="${cls}">${s.pct}<span class="pct">%</span></div><div class="pills">${chips}</div></div>
-    <div class="fuelwrap">${mark}<div class="fuelbar"><div style="width:${s.pct}%; background:${statusColor(s.pct)}"></div></div></div>
-    <div class="barlab"><span>0%</span><span><b>${rem.toFixed(0)}%</b> remaining${samplesNote}</span><span>100%</span></div></div>`;
+    <div class="fuelwrap">${mark}<div class="fuelbar"><div style="width:${s.pct}%; background:${statusColor(s.pct)}"></div></div>${st.time_pct != null ? `<div class="timebar" title="Time elapsed in the current 7-day window"><div style="width:${st.time_pct}%; background:${L.color}"></div></div>` : ''}</div>
+    <div class="barlab"><span>0%</span><span><b>${rem.toFixed(0)}%</b> remaining${samplesNote}</span><span>100%</span></div>${st.time_pct != null ? `<div class="timelab"><span>${st.time_start}</span><span>resets ${st.time_reset}</span></div>` : ''}</div>`;
 }).join('');
 const datasets = Object.entries(DATA.lanes)
   .filter(([lane, L]) => L.points.length)
