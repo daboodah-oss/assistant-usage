@@ -199,7 +199,7 @@ if ('serviceWorker' in navigator) {
   .fuelbar > div { height:100%; border-radius:7px; }
   .freemark { position:absolute; top:-4px; width:2px; height:22px; background:#e8ecf4; opacity:.85; }
   .freemark span { position:absolute; bottom:25px; left:50%; transform:translateX(-50%); font-size:.65rem; letter-spacing:.08em; color:#9aa3b5; text-transform:uppercase; }
-  .barlab { display:flex; justify-content:space-between; font-size:.75rem; color:#9aa3b5; margin-top:14px; }
+  .barlab { display:flex; justify-content:space-between; font-size:.75rem; color:#9aa3b5; margin-top:6px; }
   .barlab b { color:#e8ecf4; }
   .timebar { height:6px; border-radius:3px; background:#1d2740; margin-top:5px; overflow:hidden; }
   .timebar > div { height:100%; border-radius:3px; opacity:.55; }
@@ -261,8 +261,7 @@ cards.innerHTML = Object.entries(DATA.lanes).map(([lane, L]) => {
     ? `<div class="freemark" style="left:${st.free_marker}%" title="One full Free-tier week ends here (${st.free_marker}% of the Power bar)"><span>Free</span></div>` : '';
   return `<div class="card"><div class="k"><span style="color:${L.color}">●</span> ${L.label} <span class="plan">– ${plan}</span></div>
     <div class="toprow"><div class="bignum" style="${cls}">${s.pct}<span class="pct">%</span></div><div class="pills">${chips}</div></div>
-    <div class="barlab"><span>0%</span><span><b>${rem.toFixed(0)}%</b> remaining${samplesNote}</span><span>100%</span></div>
-    <div class="fuelwrap">${mark}<div class="fuelbar"><div style="width:${s.pct}%; background:${statusColor(s.pct)}"></div></div>${st.time_pct != null ? `<div class="timebar" title="Time elapsed in the current 7-day window"><div style="width:${st.time_pct}%; background:${L.color}"></div></div>` : ''}</div>
+    <div class="fuelwrap">${mark}<div class="fuelbar"><div style="width:${s.pct}%; background:${statusColor(s.pct)}"></div></div><div class="barlab"><span>0%</span><span><b>${rem.toFixed(0)}%</b> remaining${samplesNote}</span><span>100%</span></div>${st.time_pct != null ? `<div class="timebar" title="Time elapsed in the current 7-day window"><div style="width:${st.time_pct}%; background:${L.color}"></div></div>` : ''}</div>
     ${st.time_pct != null ? `<div class="timelab"><span>${st.time_start}</span><span>resets ${st.time_reset}</span></div>` : ''}</div>`;
 }).join('');
 const datasets = Object.entries(DATA.lanes)
