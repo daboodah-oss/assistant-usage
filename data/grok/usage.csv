@@ -2683,3 +2683,4 @@ timestamp_utc,usage_pct,plan,reset_iso,window,raw
 2026-10-16T12:43:19+00:00,11,SuperGrok Heavy,2026-10-16T12:53:06.777570+00:00,weekly_GrokImagine,product=GrokImagine 11%
 2026-10-16T12:43:19+00:00,0,SuperGrok Heavy,2026-10-16T12:53:06.777570+00:00,weekly_GrokTasks,product=GrokTasks 0%
 2026-10-16T12:43:19+00:00,2,SuperGrok Heavy,2026-10-16T12:53:06.777570+00:00,weekly_GrokVoice,product=GrokVoice 2%
+2026-10-18T06:38:56+00:00,0,SuperGrok Heavy,2026-10-23T12:53:06.777570+00:00,weekly,"source=billing_absent_lt1pct inferred_zero(<1%,field omitted by server) weekly=0% products="
