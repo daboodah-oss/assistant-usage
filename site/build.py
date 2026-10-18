@@ -134,6 +134,7 @@ def main():
                 "reset_iso": last["reset_iso"],
                 "reset_in_h": round(reset_in, 1) if reset_in else None,
                 "at": last["ts"].isoformat(timespec="seconds"),
+                "age_h": round((now - last["ts"]).total_seconds() / 3600.0, 2),
             } if last else None),
             "stats": {
                 "burn_per_hour": round(slope, 3),
@@ -179,6 +180,9 @@ def main():
   .cards { display:grid; grid-template-columns:repeat(auto-fit,minmax(220px,1fr)); gap:12px; margin-bottom:20px; }
   .card { background:#182032; border:1px solid #26314a; border-radius:12px; padding:14px 16px; }
   .card .k { font-size:.72rem; text-transform:uppercase; letter-spacing:.06em; color:#9aa3b5; margin-bottom:8px; }
+  .card .k { display:flex; align-items:center; gap:6px; }
+  .stalebadge { margin-left:auto; background:#f26d6d22; color:#f26d6d; border:1px solid #f26d6d66; font-size:.68rem; font-weight:600; padding:2px 8px; border-radius:999px; text-transform:none; letter-spacing:0; white-space:nowrap; }
+  .card.stale .toprow, .card.stale .fuelwrap, .card.stale .timelab { opacity:.45; }
   .card .note { font-size:.78rem; color:#9aa3b5; margin-top:4px; }
   .card.pending { opacity:.65; }
   .toprow { display:grid; grid-template-columns:auto 1fr; gap:12px; align-items:stretch; }
@@ -232,11 +236,19 @@ const fmtDur = h => {
   if (h < 48) { const hh=Math.floor(h), mm=Math.round((h-hh)*60); return mm? hh+'h '+String(mm).padStart(2,'0')+'m' : hh+'h'; }
   return (h/24).toFixed(1) + ' days';
 };
+const fmtAge = h => {
+  if (h < 1) return Math.round(h*60) + 'm ago';
+  if (h < 48) return Math.floor(h) + 'h ago';
+  const d = Math.floor(h/24), r = Math.floor(h%24);
+  return r ? d + 'd ' + r + 'h ago' : d + 'd ago';
+};
 function statusColor(pct){ return pct >= 90 ? '#f26d6d' : pct >= 70 ? '#f5b14c' : '#6fd08c'; }
 const cards = document.getElementById('cards');
 cards.innerHTML = Object.entries(DATA.lanes).map(([lane, L]) => {
   if (!L.latest) return `<div class="card pending"><div class="k">${L.label}</div><div class="bignum">—</div><div class="note">waiting for first sample</div></div>`;
   const s = L.latest, st = L.stats || {};
+  const stale = s.age_h != null && s.age_h > 1;
+  const badge = stale ? `<span class="stalebadge">STALE · last sample ${fmtAge(s.age_h)}</span>` : '';
   const cls = s.pct >= 90 ? 'color:#f26d6d' : s.pct >= 70 ? 'color:#f5b14c' : '';
   const rem = Math.max(0, 100 - s.pct);
   const plan = s.plan ? (s.plan === s.plan.toLowerCase() ? s.plan.charAt(0).toUpperCase() + s.plan.slice(1) : s.plan) : 'limit';
@@ -254,7 +266,7 @@ cards.innerHTML = Object.entries(DATA.lanes).map(([lane, L]) => {
   const samplesNote = st.free_equiv != null && st.samples != null ? ` · ${st.samples} samples` : '';
   const mark = st.free_marker != null
     ? `<div class="freemark" style="left:${st.free_marker}%" title="One full Free-tier week ends here (${st.free_marker}% of the Power bar)"><span>Free</span></div>` : '';
-  return `<div class="card"><div class="k"><span style="color:${L.color}">●</span> ${L.label} <span class="plan">– ${plan}</span></div>
+  return `<div class="card${stale ? ' stale' : ''}"><div class="k"><span style="color:${L.color}">●</span> ${L.label} <span class="plan">– ${plan}</span>${badge}</div>
     <div class="toprow"><div class="bignum" style="${cls}">${s.pct}<span class="pct">%</span></div><div class="pills">${chips}</div></div>
     <div class="fuelwrap">${mark}<div class="fuelbar"><div style="width:${s.pct}%; background:${statusColor(s.pct)}"></div></div><div class="barlab"><span>0%</span><span><b>${rem.toFixed(0)}%</b> remaining${samplesNote}</span><span>100%</span></div>${st.time_pct != null ? `<div class="timebar" title="Time elapsed in the current 7-day window"><div style="width:${st.time_pct}%; background:${L.color}"></div></div>` : ''}</div>
     ${st.time_pct != null ? `<div class="timelab"><span>${st.time_start}</span><span>resets ${st.time_reset}</span></div>` : ''}</div>`;
