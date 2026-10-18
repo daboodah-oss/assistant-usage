@@ -2864,3 +2864,8 @@ timestamp_utc,usage_pct,plan,reset_iso,window,raw
 2026-10-18T15:29:34+00:00,2,SuperGrok Heavy,2026-10-23T12:53:06.777570+00:00,weekly_GrokImagine,product=GrokImagine 2%
 2026-10-18T15:29:34+00:00,0,SuperGrok Heavy,2026-10-23T12:53:06.777570+00:00,weekly_GrokTasks,product=GrokTasks 0%
 2026-10-18T15:29:34+00:00,0,SuperGrok Heavy,2026-10-23T12:53:06.777570+00:00,weekly_GrokVoice,product=GrokVoice 0%
+2026-10-18T15:49:07+00:00,3,SuperGrok Heavy,2026-10-23T12:53:06.777570+00:00,weekly,"source=billing weekly=3% products=GrokChat:1,GrokImagine:2,GrokTasks:0,GrokVoice:0"
+2026-10-18T15:49:07+00:00,1,SuperGrok Heavy,2026-10-23T12:53:06.777570+00:00,weekly_GrokChat,product=GrokChat 1%
+2026-10-18T15:49:07+00:00,2,SuperGrok Heavy,2026-10-23T12:53:06.777570+00:00,weekly_GrokImagine,product=GrokImagine 2%
+2026-10-18T15:49:07+00:00,0,SuperGrok Heavy,2026-10-23T12:53:06.777570+00:00,weekly_GrokTasks,product=GrokTasks 0%
+2026-10-18T15:49:07+00:00,0,SuperGrok Heavy,2026-10-23T12:53:06.777570+00:00,weekly_GrokVoice,product=GrokVoice 0%
