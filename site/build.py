@@ -208,6 +208,20 @@ def main():
   canvas { width:100% !important; height:360px !important; }
   .foot { color:#66708a; font-size:.75rem; margin-top:28px; }
   @media (max-width:640px){ canvas{ height:280px !important; } }
+  /* Wide screens (>=1200px): full-fill two-zone layout — chart left, lane cards
+     in a fixed 400px right rail. Narrower screens keep the stacked layout. */
+  @media (min-width:1200px){
+    .wrap { max-width:none; padding:24px 28px 64px; display:grid; column-gap:16px;
+      grid-template-columns:minmax(0,1fr) 400px;
+      grid-template-areas:"head head" "sub sub" "chart cards" "foot foot"; }
+    .wrap > h1 { grid-area:head; }
+    .wrap > .sub { grid-area:sub; }
+    .wrap > .panel { grid-area:chart; margin-bottom:0; }
+    .wrap > .cards { grid-area:cards; display:flex; flex-direction:column; margin-bottom:0; }
+    .wrap > .cards .card { flex:1; }
+    .wrap > .foot { grid-area:foot; }
+    canvas { height:540px !important; }
+  }
 </style>
 </head>
 <body>
@@ -236,6 +250,7 @@ const fmtDur = h => {
   if (h < 48) { const hh=Math.floor(h), mm=Math.round((h-hh)*60); return mm? hh+'h '+String(mm).padStart(2,'0')+'m' : hh+'h'; }
   return (h/24).toFixed(1) + ' days';
 };
+const fmtEta = h => (h == null || h < 0) ? '—' : (h > 99*24 ? '99+ days' : fmtDur(h));
 const fmtAge = h => {
   if (h < 1) return Math.round(h*60) + 'm ago';
   if (h < 48) return Math.floor(h) + 'h ago';
@@ -258,8 +273,8 @@ cards.innerHTML = Object.entries(DATA.lanes).map(([lane, L]) => {
   const chips = [
     `<span class="chip">Burn <b>${st.burn_per_hour != null ? st.burn_per_hour + '%/h' : '—'}</b></span>`,
     st.hours_to_100 != null
-      ? `<span class="chip">100% in <b>${fmtDur(st.hours_to_100)}</b></span>`
-      : `<span class="chip">100% in <b>—</b> ${st.burn_per_hour < 0 ? 'falling' : 'flat'}</span>`,
+      ? `<span class="chip">100% in <b>${fmtEta(st.hours_to_100)}</b></span>`
+      : `<span class="chip">100% in <b>—</b></span>`,
     `<span class="chip">Resets <b>${fmtDur(s.reset_in_h)}</b></span>`,
     fourth
   ].join('');
