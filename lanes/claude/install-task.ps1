@@ -28,8 +28,21 @@ if ($Uninstall) {
 }
 
 # ---- preflight -----------------------------------------------------------
-$pwsh = (Get-Command pwsh -ErrorAction SilentlyContinue)?.Source
+# Resolve pwsh to a path that SURVIVES UPDATES.  The Store build lives in a
+# versioned folder (...\WindowsApps\Microsoft.PowerShell_7.6.6.0_x64__...\pwsh.exe)
+# that disappears on the next update; a task pinned to it dies with
+# 0x80070002 "file not found" (this took the lane down on 2026-10-16).  Use
+# the MSI path or the Store's stable app-execution alias instead.
+$candidates = @(
+    (Join-Path $env:ProgramFiles "PowerShell\7\pwsh.exe"),                  # MSI / winget install
+    (Join-Path $env:LOCALAPPDATA "Microsoft\WindowsApps\pwsh.exe")           # Store install (alias)
+)
+$pwsh = $candidates | Where-Object { Test-Path $_ } | Select-Object -First 1
+if (-not $pwsh) { $pwsh = (Get-Command pwsh -ErrorAction SilentlyContinue)?.Source }
 if (-not $pwsh) { throw "PowerShell 7 (pwsh) not found.  Install with: winget install Microsoft.PowerShell" }
+if ($pwsh -match '\\WindowsApps\\Microsoft\.PowerShell_\d+\.\d+') {
+    throw "Refusing to pin the task to a versioned Store path ($pwsh); it breaks on the next PowerShell update."
+}
 if (-not (Get-Command git -ErrorAction SilentlyContinue)) { throw "git not found on PATH" }
 if (-not ((Get-Command python -ErrorAction SilentlyContinue) -or (Get-Command py -ErrorAction SilentlyContinue))) { throw "python not found on PATH" }
 if (-not (Test-Path (Join-Path $RepoPath ".git"))) { throw "No git repo at $RepoPath (pass -RepoPath)" }
@@ -63,7 +76,7 @@ $settings = New-ScheduledTaskSettingsSet -AllowStartIfOnBatteries -DontStopIfGoi
 $principal = New-ScheduledTaskPrincipal -UserId "$env:USERDOMAIN\$env:USERNAME" -LogonType Interactive -RunLevel Limited
 
 Register-ScheduledTask -TaskName $taskName -Action $action -Trigger $trigger -Settings $settings -Principal $principal -Force | Out-Null
-Write-Host "Registered scheduled task '$taskName' (every 15 min)."
+Write-Host "Registered scheduled task '$taskName' (every 15 min) using $pwsh"
 
 # ---- first run now, show the result ----------------------------------------
 Start-ScheduledTask -TaskName $taskName
