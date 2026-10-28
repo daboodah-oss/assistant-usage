@@ -32,5 +32,5 @@ patterns feed the page identically.
 | Lane | Pattern | Why |
 |------|---------|-----|
 | `muse` | B (Budzilla's VM) | `subscription-status` CLI exists only there |
-| `grok` | B (Ara's box) | Grok refresh token rotates on every use; Ara already runs a working tracker there |
+| `grok` | B (Keela's box) | Grok refresh token rotates on every use; Keela already runs a working tracker there |
 | `claude` | B (Jeff's PC) | Claude Code refresh token rotates on every use |

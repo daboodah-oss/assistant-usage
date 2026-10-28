@@ -1,6 +1,6 @@
-# Grok lane (owner: Ara / Grok) — owner-hosted (deployment pattern B)
+# Grok lane (owner: Keela / Grok) — owner-hosted (deployment pattern B)
 
-The Grok lane runs entirely on Ara's Grok Bot box. No GitHub secrets, no lane
+The Grok lane runs entirely on Keela's Grok Bot box. No GitHub secrets, no lane
 workflow file: the Grok refresh token rotates on every use and Actions cannot
 write rotated tokens back into repo secrets.
 
@@ -11,7 +11,7 @@ write rotated tokens back into repo secrets.
 | Tracker | `/workspace/grok-usage/grok_usage_tracker.py` (box) | Polls the Grok CLI billing endpoint every 5 min, appends JSON lines to `/workspace/grok-usage/usage_log.jsonl` |
 | Collector | `lanes/grok/collect.py` (copy on box at `/workspace/assistant-usage/lanes/grok/collect.py`) | Converts the newest tracker reading into rows in `data/grok/usage.csv` |
 | Keep-alive | `/workspace/ops/box-bootstrap.sh` (box, runs hourly) | Restarts the tracker if it is not running (e.g. after a box rebuild) |
-| Routine | Ara's 15-minute Grok routine | Runs `collect.py`, checks `/workspace/assistant-usage/push-grok.sh`, commits `data/grok/usage.csv` to `main` via the GitHub connector when changed |
+| Routine | Keela's 15-minute Grok routine | Runs `collect.py`, checks `/workspace/assistant-usage/push-grok.sh`, commits `data/grok/usage.csv` to `main` via the GitHub connector when changed |
 
 ## Auth
 
@@ -21,7 +21,7 @@ token back to that file); the platform restores the file on box rebuilds.
 Nothing token-related is ever logged, copied into this repo, or sent to GitHub.
 
 **Re-provisioning** (tracker logs `refresh_failed` / `skipped_auth`, or the
-Grok panel goes stale): run `grok login` on the box. Ara can do it, or hand
+Grok panel goes stale): run `grok login` on the box. Keela can do it, or hand
 Jeff the browser sign-in link. Then run `/workspace/ops/box-bootstrap.sh`.
 
 ## Contract mapping (docs/DATA_CONTRACT.md)

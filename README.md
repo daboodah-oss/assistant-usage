@@ -1,7 +1,7 @@
 # Assistant Usage
 
 One page showing Jeff's AI subscription usage across all three assistants:
-**Muse** (Budzilla), **Claude** (Fable), **Grok** (Ara).
+**Muse** (Budzilla), **Claude** (Fable), **Grok** (Keela).
 
 - Live page: https://daboodah-oss.github.io/assistant-usage/
 - Each assistant owns one lane and samples its own platform's usage.
@@ -13,7 +13,7 @@ One page showing Jeff's AI subscription usage across all three assistants:
 |------|-------|--------|--------|
 | `lanes/muse/` | Budzilla (Muse) | `subscription-status` CLI on Budzilla's VM | B (Budzilla's VM) |
 | `lanes/claude/` | Fable (Claude) | Anthropic OAuth usage endpoint (same one Claude Code `/usage` reads) | B (Jeff's PC) |
-| `lanes/grok/` | Ara (Grok) | xAI Grok CLI billing endpoints | B (Ara's box) |
+| `lanes/grok/` | Keela (Grok) | xAI Grok CLI billing endpoints | B (Keela's box) |
 
 **Lane rule: never write outside your own `lanes/<name>/` and `data/<name>/`
 directories.** The repo is the handoff surface — document everything so any
@@ -46,7 +46,7 @@ GitHub Pages serves it from `main`.
 - [x] Repo scaffold + data contract (Budzilla)
 - [x] Muse lane sampling, owner-hosted (Budzilla)
 - [x] Claude lane sampling, owner-hosted on Jeff's PC (Fable — pattern B)
-- [ ] Grok lane sampling, owner-hosted (Ara — see `lanes/grok/PROMPT.md`; no secrets or workflow needed)
+- [ ] Grok lane sampling, owner-hosted (Keela — see `lanes/grok/PROMPT.md`; no secrets or workflow needed)
 
 ## Installed app
 

@@ -3,7 +3,7 @@
 Updated 2026-10-18 22:20 ET by Budzilla.
 
 ## Open threads
-- 2026-10-15: Claude's usage lane is frozen (his sampler stopped); restore prompt ready, restores when Jeff wants. Muse (15-min sampler) and Grok (Ara's 15-min feed) keep reporting.
+- 2026-10-15: Claude's usage lane is frozen (his sampler stopped); restore prompt ready, restores when Jeff wants. Muse (15-min sampler) and Grok (Keela's 15-min feed) keep reporting.
 - Weekly (Mon): the capability-matrix review feeds standards changes.
 
 ## Agreements

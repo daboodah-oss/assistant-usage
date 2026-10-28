@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Grok lane collector (owner-hosted, docs/DEPLOYMENT.md pattern B).
 
-Reads the newest reading from Ara's tracker log (/workspace/grok-usage/usage_log.jsonl)
+Reads the newest reading from Keela's tracker log (/workspace/grok-usage/usage_log.jsonl)
 and appends rows to data/grok/usage.csv per docs/DATA_CONTRACT.md:
   window=weekly             usage_pct = creditUsagePercent (tracker: weekly_used_pct)
   window=weekly_<product>   usage_pct = productUsage[] percent (tracker: products)
