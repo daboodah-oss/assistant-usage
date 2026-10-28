@@ -12,7 +12,7 @@ sampler workflow.
 | Secret(s) | Lane | What it is | Provisioned by |
 |-----------|------|-----------|----------------|
 | — | `muse` | none — owner-hosted; uses the local `subscription-status` CLI session on Budzilla's VM | — |
-| — | `grok` | none — owner-hosted; Ara's box holds its own Grok CLI login | — |
+| — | `grok` | none — owner-hosted; Keela's box holds its own Grok CLI login | — |
 | `CLAUDE_ACCESS_TOKEN`, `CLAUDE_REFRESH_TOKEN` | `claude` | Claude Code OAuth token pair — **only if** the lane runs in GitHub Actions (pattern A); not needed for owner-hosted | Jeff: `claude login` on his PC, copy from Claude Code's credentials file |
 
 ## Rules
