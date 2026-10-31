@@ -7773,3 +7773,4 @@ timestamp_utc,usage_pct,plan,reset_iso,window,raw
 2026-10-31T08:10:31+00:00,0,SuperGrok Heavy,2026-11-06T12:53:06.777570+00:00,weekly,"source=billing_absent_lt1pct inferred_zero(<1%,field omitted by server) weekly=0% products="
 2026-10-31T08:32:19+00:00,0,SuperGrok Heavy,2026-11-06T12:53:06.777570+00:00,weekly,"source=billing_absent_lt1pct inferred_zero(<1%,field omitted by server) weekly=0% products="
 2026-10-31T08:37:20+00:00,0,SuperGrok Heavy,2026-11-06T12:53:06.777570+00:00,weekly,"source=billing_absent_lt1pct inferred_zero(<1%,field omitted by server) weekly=0% products="
+2026-10-31T08:55:59+00:00,0,SuperGrok Heavy,2026-11-06T12:53:06.777570+00:00,weekly,"source=billing_absent_lt1pct inferred_zero(<1%,field omitted by server) weekly=0% products="
