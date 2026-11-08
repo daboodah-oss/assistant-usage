@@ -9308,3 +9308,4 @@ timestamp_utc,usage_pct,plan,reset_iso,window,raw
 2026-11-08T06:19:16+00:00,0,SuperGrok Heavy,2026-11-13T12:53:06.777570+00:00,weekly,"source=billing_absent_lt1pct inferred_zero(<1%,field omitted by server) weekly=0% products="
 2026-11-08T06:52:10+00:00,0,SuperGrok Heavy,2026-11-13T12:53:06.777570+00:00,weekly,"source=billing_absent_lt1pct inferred_zero(<1%,field omitted by server) weekly=0% products="
 2026-11-08T07:09:49+00:00,0,SuperGrok Heavy,2026-11-13T12:53:06.777570+00:00,weekly,"source=billing_absent_lt1pct inferred_zero(<1%,field omitted by server) weekly=0% products="
+2026-11-08T07:35:55+00:00,0,SuperGrok Heavy,2026-11-13T12:53:06.777570+00:00,weekly,"source=billing_absent_lt1pct inferred_zero(<1%,field omitted by server) weekly=0% products="
