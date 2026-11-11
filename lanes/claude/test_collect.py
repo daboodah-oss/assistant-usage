@@ -265,6 +265,33 @@ class FileCredsTests(Base):
         self.assertIn("credentials_unreadable", out)
         self.assertEqual(self.rows(), [])
 
+    def test_login_days_left_on_every_status_line(self):
+        d = self.creds()
+        d["claudeAiOauth"]["refreshTokenExpiresAt"] = int((time.time() + 5.5 * 86400) * 1000)
+        write(self.cred, json.dumps(d))
+        self.script([(200, SAMPLE)])
+        _, out, _ = self.run_main()
+        self.assertIn("status=ok", out)
+        self.assertIn("login_days_left=5.", out)
+        collect.CSV_PATH = self.csv = os.path.join(self.tmp, "other.csv")
+        self.script([(401, None)], None)
+        _, out, _ = self.run_main()
+        self.assertIn("relogin_needed", out)
+        self.assertIn("login_days_left=5.", out)
+
+    def test_login_days_left_negative_once_expired_and_absent_when_unknown(self):
+        d = self.creds()
+        d["claudeAiOauth"]["refreshTokenExpiresAt"] = int((time.time() - 2 * 86400) * 1000)
+        write(self.cred, json.dumps(d))
+        self.script([(401, None)], None)
+        _, out, _ = self.run_main()
+        self.assertIn("login_days_left=-2.", out)
+        self.write_creds()  # no refreshTokenExpiresAt field
+        collect.CSV_PATH = self.csv = os.path.join(self.tmp, "other.csv")
+        self.script([(200, SAMPLE)])
+        _, out, _ = self.run_main()
+        self.assertNotIn("login_days_left", out)
+
     def test_explicit_credentials_file_env_wins(self):
         other = os.path.join(self.tmp, "elsewhere.json")
         shutil.copy(self.cred, other)

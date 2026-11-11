@@ -18,8 +18,9 @@ Fable has no machine of its own that holds a Claude Code login; the login lives 
 |-------|------|------|
 | Sampler | `lanes/claude/collect.py` | Stdlib Python.  Reads the credentials file, calls the usage endpoint, appends rows.  Refreshes its own token when needed and writes the rotated pair back. |
 | Runner | `lanes/claude/run.ps1` | One cycle: `git pull --rebase`, run the sampler, commit `data/claude/usage.csv` if changed, push (rebase and retry on conflict).  Logs to `%LOCALAPPDATA%\assistant-usage\claude-lane.log`. |
+| Re-login | `lanes/claude/relogin.ps1` | Signs the sampler's own login in again (no menu, browser sign-in only), shows the new expiry, runs one cycle.  See "Re-provisioning the login". |
 | Installer | `lanes/claude/install-task.ps1` | Registers the scheduled task `assistant-usage claude lane` (every 15 min).  `-Uninstall` removes it.  Safe to re-run; it replaces the task in place. |
-| Tests | `lanes/claude/test_collect.py` | 29 offline tests with mocked HTTP: `python lanes/claude/test_collect.py` |
+| Tests | `lanes/claude/test_collect.py` | 31 offline tests with mocked HTTP: `python lanes/claude/test_collect.py` |
 | Output | `data/claude/usage.csv` | Append-only |
 | Handoff | `lanes/claude/PROMPT.md` | The v2 spec |
 
@@ -33,7 +34,7 @@ Nothing in this lane lives anywhere else: no repo secrets, no workflow under `.g
 4. Writes one row per window.  Unrecognized shape or any failure: writes **nothing** and exits 0.  A missing row is honest; a zero is a lie.  A genuine 0% is written as 0.
 5. Skips if the last sample is under 2 minutes old (contract rule 6).  A lockfile in the temp dir stops overlapping runs on the same machine.
 
-Every run prints one status line (`claude-collector: status=ok rows=2 windows=five_hour,seven_day plan=pro creds=file refreshed=false`, or `status=nothing_written reason=...`), and the runner copies it to the log.  The process exit code is always 0; the log is the signal.
+Every run prints one status line (`claude-collector: status=ok rows=3 windows=five_hour,weekly_fable,seven_day plan=pro creds=file refreshed=false login_days_left=28.7`, or `status=nothing_written reason=...`), and the runner copies it to the log.  `login_days_left` is days until the login's `refreshTokenExpiresAt` (negative once past; absent if the file has no such field).  The process exit code is always 0; the log is the signal.
 
 ### Windows (CSV `window` column)
 
@@ -90,7 +91,15 @@ That is all.  No GitHub secrets, no tokens pasted anywhere.
 
 Symptoms: the Claude card on the page goes stale, and the log shows `refresh_failed_relogin_needed`, `401_after_refresh`, `401_and_no_refresh_token`, or `no_credentials`.  Causes are a revoked session, a password change, or the refresh token reaching its fixed expiry.  The credentials file carries a `refreshTokenExpiresAt`, roughly four weeks after the login, and refreshing does **not** push it out: the login dies on that date even while the lane is sampling every 15 minutes (the November 2026 incident below).  An outage alone does not kill it; a 3-day outage in October 2026 refreshed cleanly afterwards.
 
-Fix: repeat setup step 2 above with the sampler config dir.  `claude auth login --claudeai` does the same as `claude login` but skips the subscription/Console menu, which is handy over remote desktop where arrow keys may not get through:
+**Advance warning:** once fewer than 7 days are left (or the login is already dead), `run.ps1` logs a `WARN` line every cycle and pops a Windows message box (`msg.exe`) on Jeff's screen at most once a day.  The once-a-day marker is `%LOCALAPPDATA%\assistant-usage\claude-login-warned.txt`.
+
+Fix: run the re-login script from any PowerShell window (or right-click it, Run with PowerShell):
+
+```powershell
+& "$env:USERPROFILE\github\assistant-usage-sampler\lanes\claude\relogin.ps1"
+```
+
+It runs `claude auth login --claudeai` with the sampler config dir.  The flag skips the subscription/Console menu, which matters over remote desktop where arrow keys may not get through, so only the browser sign-in is left.  Then it prints the new expiry date and runs one cycle.  The manual equivalent, in a throwaway window:
 
 ```powershell
 $env:CLAUDE_CONFIG_DIR = "$env:USERPROFILE\.claude-sampler"; claude auth login --claudeai
@@ -130,6 +139,7 @@ Log lines and what they mean:
 | `ERROR push failed after 3 attempts` | Network or auth.  The commit is kept locally and the next run retries. |
 | `refresh_lock_busy` | Another process held the refresh lock for 15 s.  Harmless once; recurring means a stuck process. |
 | `refresh_failed_relogin_needed`, `401_after_refresh`, `401_and_no_refresh_token`, `no_credentials` | The login is dead or missing.  Re-provision (section above). |
+| `WARN Claude usage sampler: its login expires in N days` / `... has expired` | Login near or past `refreshTokenExpiresAt`; a popup also went to the screen (`notified (popup)`).  Run `relogin.ps1`. |
 | `unrecognized_shape` | The endpoint changed.  The log lists the top-level keys it saw.  Update `parse_usage()` in `collect.py`. |
 
 ## Incident log
@@ -138,7 +148,7 @@ Log lines and what they mean:
 The Microsoft Store updated PowerShell from 7.6.6 to 7.6.7 on 2026-10-14.  The task had been registered with `pwsh.exe` resolved to the Store's versioned folder (`C:\Program Files\WindowsApps\Microsoft.PowerShell_7.6.6.0_x64__8wekyb3d8bbwe\pwsh.exe`).  The old folder was removed after the update; the PC then slept from the morning of the 15th, and from 2026-10-16 01:23 every 15-minute trigger failed to launch with 0x80070002 (278 failures in Task Scheduler's log, nothing in the lane log because pwsh never started).  The credential was unaffected: the first manual run on the 18th refreshed the token and sampled normally, and the local clone was level with origin, so nothing was lost in the push path.  Fix: `install-task.ps1` now resolves pwsh to a version-independent path (MSI path or the Store alias) and refuses a versioned one; the task was re-registered and three consecutive scheduled cycles were verified landing on GitHub.  Lesson for any Store-installed tool a task depends on: never point a scheduled task at `C:\Program Files\WindowsApps\<package>_<version>_...`.
 
 **2026-11-07 21:15 EST to 2026-11-11 03:45 EST: no samples (lane flagged STALE).**
-The sampler's login reached its fixed refresh-token expiry.  `refreshTokenExpiresAt` in `.credentials.json` was 2026-11-07 22:39Z (5:39 PM EST); rotating the token on each refresh did **not** extend that date.  The access token from the last good refresh (Nov 7, 1:30 PM EST) stayed valid until 02:30Z Nov 8 (9:30 PM EST), so sampling continued until the 21:15 EST sample; from the next cycle on, every refresh was refused (`refresh_failed_relogin_needed`, `platform.claude.com returned status 400`), one failure per 15 minutes.  Not a repeat of October: the task launched every cycle with `LastTaskResult` 0 via the Store alias, the PC was on, and the clone was clean and level with origin, so nothing was stuck in the push path.  Fix: Jeff re-ran the setup step 2 login on 2026-11-11 at 3:34 AM EST, using `claude auth login --claudeai` (the flag skips the subscription/Console menu, which could not be navigated over remote desktop).  The new login's `refreshTokenExpiresAt` is 2026-12-10 05:05Z (Dec 9, 12:05 AM EST).  First new sample 2026-11-11T08:45:15Z, seven_day 3%; the 03:45, 04:00 and 04:15 EST scheduled cycles each logged `status=ok rows=3` and `pushed`, and their commits are on `origin/main`.  Lesson: the login lasts about four weeks no matter how healthy the lane is; plan a re-login before `refreshTokenExpiresAt`, not after the lane goes stale.
+The sampler's login reached its fixed refresh-token expiry.  `refreshTokenExpiresAt` in `.credentials.json` was 2026-11-07 22:39Z (5:39 PM EST); rotating the token on each refresh did **not** extend that date.  The access token from the last good refresh (Nov 7, 1:30 PM EST) stayed valid until 02:30Z Nov 8 (9:30 PM EST), so sampling continued until the 21:15 EST sample; from the next cycle on, every refresh was refused (`refresh_failed_relogin_needed`, `platform.claude.com returned status 400`), one failure per 15 minutes.  Not a repeat of October: the task launched every cycle with `LastTaskResult` 0 via the Store alias, the PC was on, and the clone was clean and level with origin, so nothing was stuck in the push path.  Fix: Jeff re-ran the setup step 2 login on 2026-11-11 at 3:34 AM EST, using `claude auth login --claudeai` (the flag skips the subscription/Console menu, which could not be navigated over remote desktop).  The new login's `refreshTokenExpiresAt` is 2026-12-10 05:05Z (Dec 9, 12:05 AM EST).  First new sample 2026-11-11T08:45:15Z, seven_day 3%; the 03:45, 04:00 and 04:15 EST scheduled cycles each logged `status=ok rows=3` and `pushed`, and their commits are on `origin/main`.  Lesson: the login lasts about four weeks no matter how healthy the lane is; plan a re-login before `refreshTokenExpiresAt`, not after the lane goes stale.  Follow-up the same day: the status line now carries `login_days_left`, `run.ps1` warns (log plus a once-a-day popup) under 7 days, and `relogin.ps1` makes the re-login a single command.
 
 ## Notes for whoever picks this up cold
 

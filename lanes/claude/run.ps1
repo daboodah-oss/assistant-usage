@@ -29,6 +29,31 @@ function Invoke-Git([string[]]$GitArgs) {
     $out = & git -C $RepoPath @GitArgs 2>&1
     return @{ ok = ($LASTEXITCODE -eq 0); out = (($out | Out-String).Trim() -replace '\s+', ' ') }
 }
+# The sampler's login has a fixed lifetime (about four weeks) that refreshing
+# does not extend.  collect.py reports login_days_left on its status line; under
+# $warnDays, or once the login is dead, log a WARN every cycle and pop a message
+# on Jeff's screen at most once a day.  Only a date is involved, never a token.
+$warnDays = 7
+$deadReasons = 'refresh_failed_relogin_needed|401_after_refresh|401_and_no_refresh_token|no_credentials'
+function Test-LoginExpiry([string]$status) {
+    try {
+        $days = $null
+        if ($status -match 'login_days_left=(-?[\d.]+)') { $days = [double]$Matches[1] }
+        $dead = $status -match "reason=($deadReasons)"
+        if (-not $dead -and ($null -eq $days -or $days -ge $warnDays)) { return }
+        $fix = "Re-login: in PowerShell run  $(Join-Path $PSScriptRoot 'relogin.ps1')"
+        $msg = if ($dead) { "Claude usage sampler: its login has expired, so no samples are being recorded.  $fix" }
+               else { "Claude usage sampler: its login expires in {0:0.#} days.  $fix" -f $days }
+        Log "WARN $msg"
+        $stamp = Join-Path $logDir "claude-login-warned.txt"
+        $today = (Get-Date).ToString('yyyy-MM-dd')
+        if ((Get-Content $stamp -ErrorAction SilentlyContinue) -eq $today) { return }
+        & msg.exe $env:USERNAME /TIME:43200 $msg 2>&1 | Out-Null
+        if ($LASTEXITCODE -eq 0) { Set-Content $stamp $today -Encoding utf8; Log "notified (popup)" }
+        else { Log "WARN popup failed (msg.exe exit $LASTEXITCODE)" }
+    } catch { Log "WARN expiry check failed: $($_.Exception.Message)" }
+}
+
 $csv = "data/claude/usage.csv"
 $author = @('-c', 'user.name=Fable (claude lane)', '-c', 'user.email=claude-lane@users.noreply.github.com')
 
@@ -47,6 +72,7 @@ try {
     $status = ($result | Where-Object { "$_" -like "claude-collector:*" } | Select-Object -Last 1)
     $errs = ($result | Where-Object { "$_" -notlike "claude-collector:*" }) -join " | "
     Log ("collect: {0}{1}" -f ($status ?? "no status line"), ($(if ($errs) { "  [$errs]" } else { "" })))
+    Test-LoginExpiry "$status"
 
     Invoke-Git @('add', '--', $csv) | Out-Null
     if ((Invoke-Git @('diff', '--cached', '--quiet', '--', $csv)).ok) { Log "no change"; exit 0 }

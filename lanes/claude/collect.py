@@ -59,6 +59,7 @@ MIN_GAP_S = 120                # DATA_CONTRACT rule 6
 HEADER = ["timestamp_utc", "usage_pct", "plan", "reset_iso", "window", "raw"]
 
 _SECRETS = []  # token values to redact from any log line
+_LOGIN_EXPIRES = None  # epoch seconds of refreshTokenExpiresAt (a date, not a secret)
 
 
 def log(msg):
@@ -69,7 +70,14 @@ def log(msg):
 
 
 def status_line(**kv):
-    """Single machine/human readable result line on stdout (safe: no secrets)."""
+    """Single machine/human readable result line on stdout (safe: no secrets).
+
+    When the login's refresh-token expiry is known, every line ends with
+    login_days_left=N.N so the runner can warn before the login dies (it has a
+    fixed lifetime of about four weeks that refreshing does not extend).
+    """
+    if _LOGIN_EXPIRES is not None:
+        kv["login_days_left"] = f"{(_LOGIN_EXPIRES - time.time()) / 86400:.1f}"
     print("claude-collector: " + " ".join(f"{k}={v}" for k, v in kv.items()))
 
 
@@ -180,6 +188,7 @@ class FileCreds:
         self.data = None
         self.access = self.refresh = self.plan = None
         self.expires_at = None  # epoch seconds or None
+        self.login_expires_at = None  # refreshTokenExpiresAt, epoch seconds or None
 
     def describe(self):
         return "file"
@@ -196,6 +205,10 @@ class FileCreds:
         self.refresh = oauth.get("refreshToken") if isinstance(oauth.get("refreshToken"), str) else ""
         exp = oauth.get("expiresAt")
         self.expires_at = exp / 1000.0 if isinstance(exp, (int, float)) and not isinstance(exp, bool) and exp > 1e11 else None
+        rexp = oauth.get("refreshTokenExpiresAt")
+        self.login_expires_at = rexp / 1000.0 if isinstance(rexp, (int, float)) and not isinstance(rexp, bool) and rexp > 1e11 else None
+        global _LOGIN_EXPIRES
+        _LOGIN_EXPIRES = self.login_expires_at
         sub = oauth.get("subscriptionType")
         tier = oauth.get("rateLimitTier")
         self.plan = sub if isinstance(sub, str) and sub.strip() else (tier if isinstance(tier, str) and tier.strip() else None)
@@ -479,6 +492,8 @@ def do_refresh(creds):
 
 
 def run():
+    global _LOGIN_EXPIRES
+    _LOGIN_EXPIRES = None
     no_refresh = os.environ.get("CLAUDE_NO_REFRESH", "").strip() == "1"
     try:
         creds = load_credentials()
