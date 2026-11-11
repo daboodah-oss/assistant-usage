@@ -17,6 +17,12 @@ reads all three files; it must keep working when a lane has no data yet.
 One row per sample per window. Lanes with multiple windows (Claude) write one
 row per window per run.
 
+Grok writes two weekly windows: `weekly` (the SuperGrok Heavy pool) and
+`grok_bot` (the separate weekly Grok Bot limit — the pool the Grok bots
+actually draw on — read from the platform's bot-usage source, not the billing
+endpoint). The site renders `grok_bot` as an extra series on the Grok card
+plus its own chart line.
+
 ## Rules
 
 1. **Append-only.** Never rewrite history. Fix bad rows by appending
