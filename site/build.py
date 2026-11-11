@@ -127,8 +127,51 @@ def main():
                     }
             except Exception:
                 pass
+        # Extra series: Grok's separate weekly Bot limit (window=grok_bot) --
+        # the pool the Grok bots actually draw on, distinct from the headline
+        # SuperGrok Heavy pool. Rendered as a sub-block on the Grok card plus
+        # its own chart line. Absent until the lane writes grok_bot rows.
+        extra = None
+        if lane == "grok":
+            bot = [r for r in rows if r["window"] == "grok_bot"]
+            if bot:
+                blast = bot[-1]
+                breset_in = None
+                if blast["reset_iso"]:
+                    try:
+                        rt = datetime.fromisoformat(blast["reset_iso"])
+                        breset_in = (rt - now).total_seconds() / 3600.0
+                    except Exception:
+                        pass
+                btime_pct = btime_start = btime_reset = None
+                if breset_in is not None:
+                    total_h = 168.0
+                    btime_pct = round(min(100.0, max(0.0, (1 - breset_in / total_h) * 100)), 1)
+                    try:
+                        rt = datetime.fromisoformat(blast["reset_iso"])
+                        et = ZoneInfo(LOCAL_TZ)
+                        btime_start = (rt - timedelta(hours=total_h)).astimezone(et).strftime("%b %d")
+                        btime_reset = rt.astimezone(et).strftime("%b %d · %I:%M %p")
+                    except Exception:
+                        btime_pct = btime_start = btime_reset = None
+                extra = {
+                    "label": "Grok Bot",
+                    "color": "#b8e986",
+                    "latest": {
+                        "pct": blast["pct"], "plan": blast["plan"],
+                        "reset_iso": blast["reset_iso"],
+                        "reset_in_h": round(breset_in, 1) if breset_in is not None else None,
+                        "at": blast["ts"].isoformat(timespec="seconds"),
+                        "age_h": round((now - blast["ts"]).total_seconds() / 3600.0, 2),
+                    },
+                    "stats": {"samples": len(bot), "time_pct": btime_pct,
+                              "time_start": btime_start, "time_reset": btime_reset},
+                    "points": [{"t": r["ts"].isoformat(timespec="seconds"), "pct": r["pct"]}
+                               for r in bot],
+                }
         lanes[lane] = {
             "label": label, "color": color,
+            "extra": extra,
             "latest": ({
                 "pct": last_pct, "plan": last["plan"],
                 "reset_iso": last["reset_iso"],
@@ -182,7 +225,16 @@ def main():
   .card .k { font-size:.72rem; text-transform:uppercase; letter-spacing:.06em; color:#9aa3b5; margin-bottom:8px; }
   .card .k { display:flex; align-items:center; gap:6px; }
   .stalebadge { margin-left:auto; background:#f26d6d22; color:#f26d6d; border:1px solid #f26d6d66; font-size:.68rem; font-weight:600; padding:2px 8px; border-radius:999px; text-transform:none; letter-spacing:0; white-space:nowrap; }
-  .card.stale .toprow, .card.stale .fuelwrap, .card.stale .timelab { opacity:.45; }
+  .card.stale .toprow, .card.stale .fuelwrap, .card.stale .timelab, .card.stale .extra { opacity:.45; }
+  .extra { margin-top:16px; border-top:1px solid #26314a; padding-top:12px; }
+  .extra .k2 { display:flex; align-items:center; gap:6px; font-size:.72rem; text-transform:uppercase; letter-spacing:.06em; color:#9aa3b5; margin-bottom:8px; }
+  .extra .k2 .plan { text-transform:none; letter-spacing:0; }
+  .extrarow { display:flex; align-items:flex-end; gap:12px; margin-bottom:10px; }
+  .extranum { font-size:2rem; font-weight:700; line-height:1; }
+  .extranum .pct { font-size:1.1rem; font-weight:700; }
+  .extrameta { margin-left:auto; text-align:right; font-size:.78rem; color:#9aa3b5; padding-bottom:2px; }
+  .extrameta b { color:#e8ecf4; font-weight:600; }
+  .extra.xstale .extrarow, .extra.xstale .fuelbar, .extra.xstale .barlab, .extra.xstale .timebar, .extra.xstale .timelab { opacity:.45; }
   .card .note { font-size:.78rem; color:#9aa3b5; margin-top:4px; }
   .card.pending { opacity:.65; }
   .toprow { display:grid; grid-template-columns:auto 1fr; gap:12px; align-items:stretch; }
@@ -239,7 +291,8 @@ def main():
   series; dashed lines project it to the reset (capped at 100%). The Muse card's
   free-tier equivalence uses the estimated 5x Power/Free allowance ratio, and the
   "Free" tick on its bar marks where one full Free-tier week runs out (20% of the
-  Power bar). One repo, one lane per assistant:
+  Power bar). The Grok card also tracks the separate weekly Grok Bot limit — the
+  pool the Grok bots actually draw on — as its own bar and chart line. One repo, one lane per assistant:
   <a href="https://github.com/daboodah-oss/assistant-usage" style="color:#5aa2ff">daboodah-oss/assistant-usage</a>.</p>
 </div>
 <script>
@@ -281,10 +334,20 @@ cards.innerHTML = Object.entries(DATA.lanes).map(([lane, L]) => {
   const samplesNote = st.free_equiv != null && st.samples != null ? ` · ${st.samples} samples` : '';
   const mark = st.free_marker != null
     ? `<div class="freemark" style="left:${st.free_marker}%" title="One full Free-tier week ends here (${st.free_marker}% of the Power bar)"><span>Free</span></div>` : '';
+  const x = L.extra, xs = x && x.latest, xst = (x && x.stats) || {};
+  const extraBlock = xs ? (() => {
+    const xstale = xs.age_h != null && xs.age_h > 1;
+    const xcls = xs.pct >= 90 ? 'color:#f26d6d' : xs.pct >= 70 ? 'color:#f5b14c' : '';
+    const xrem = Math.max(0, 100 - xs.pct);
+    return `<div class="extra${xstale ? ' xstale' : ''}"><div class="k2"><span style="color:${x.color}">●</span> ${x.label} <span class="plan">– weekly limit</span>${xstale ? `<span class="stalebadge">STALE · last sample ${fmtAge(xs.age_h)}</span>` : ''}</div>
+    <div class="extrarow"><div class="extranum" style="${xcls}">${xs.pct}<span class="pct">%</span></div><div class="extrameta">Resets <b>${fmtDur(xs.reset_in_h)}</b></div></div>
+    <div class="fuelbar"><div style="width:${xs.pct}%; background:${statusColor(xs.pct)}"></div></div><div class="barlab"><span>0%</span><span><b>${xrem.toFixed(0)}%</b> remaining</span><span>100%</span></div>
+    ${xst.time_pct != null ? `<div class="timebar" title="Time elapsed in the current 7-day window"><div style="width:${xst.time_pct}%; background:${x.color}"></div></div><div class="timelab"><span>${xst.time_start}</span><span>resets ${xst.time_reset}</span></div>` : ''}</div>`;
+  })() : '';
   return `<div class="card${stale ? ' stale' : ''}"><div class="k"><span style="color:${L.color}">●</span> ${L.label} <span class="plan">– ${plan}</span>${badge}</div>
     <div class="toprow"><div class="bignum" style="${cls}">${s.pct}<span class="pct">%</span></div><div class="pills">${chips}</div></div>
     <div class="fuelwrap">${mark}<div class="fuelbar"><div style="width:${s.pct}%; background:${statusColor(s.pct)}"></div></div><div class="barlab"><span>0%</span><span><b>${rem.toFixed(0)}%</b> remaining${samplesNote}</span><span>100%</span></div>${st.time_pct != null ? `<div class="timebar" title="Time elapsed in the current 7-day window"><div style="width:${st.time_pct}%; background:${L.color}"></div></div>` : ''}</div>
-    ${st.time_pct != null ? `<div class="timelab"><span>${st.time_start}</span><span>resets ${st.time_reset}</span></div>` : ''}</div>`;
+    ${st.time_pct != null ? `<div class="timelab"><span>${st.time_start}</span><span>resets ${st.time_reset}</span></div>` : ''}${extraBlock}</div>`;
 }).join('');
 const datasets = Object.entries(DATA.lanes)
   .filter(([lane, L]) => L.points.length)
@@ -294,6 +357,16 @@ const datasets = Object.entries(DATA.lanes)
     borderColor: L.color, backgroundColor: L.color + '22',
     fill: false, tension: .25, pointRadius: 0, borderWidth: 2
   }));
+// Extra series (e.g. Grok Bot): a lane's secondary pool, charted alongside.
+Object.entries(DATA.lanes).forEach(([lane, L]) => {
+  if (!L.extra || !L.extra.points.length) return;
+  datasets.push({
+    label: L.extra.label,
+    data: L.extra.points.map(p => ({x: new Date(p.t), y: p.pct})),
+    borderColor: L.extra.color, backgroundColor: L.extra.color + '22',
+    fill: false, tension: .25, pointRadius: 0, borderWidth: 2
+  });
+});
 // Dashed projection per lane: current burn rate extended to the reset (or 100%).
 Object.entries(DATA.lanes).forEach(([lane, L]) => {
   if (!L.projection) return;
