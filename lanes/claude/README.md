@@ -41,7 +41,7 @@ Every run prints one status line (`claude-collector: status=ok rows=2 windows=fi
 |----------|---------|
 | `five_hour` | Rolling 5-hour session limit.  `reset_iso` is when the current window ends. |
 | `seven_day` | Weekly limit across all models. |
-| `weekly_<model>` | A separate weekly cap on one model, e.g. `weekly_fable_5`.  Anthropic rotates which model has one, so the label comes from the API's `limits[]` entries.  Jeff's Pro plan currently reports none, so only the two rows above appear. |
+| `weekly_<model>` | A separate weekly cap on one model, e.g. `weekly_fable_5`.  Anthropic rotates which model has one, so the label comes from the API's `limits[]` entries.  Since 2026-11-11 Jeff's Pro plan reports `weekly_fable` (written between the two rows above), so each run writes three rows. |
 
 `usage_pct` is percent **used** (0 to 100).  `raw` holds only whitelisted fields (`kind`, `utilization` or `percent`, `resets_at`, model name), so nothing sensitive can reach `data/`.  Each run writes `seven_day` last, so the shared page's Claude card shows the weekly figure (see the site note below).
 
@@ -88,9 +88,13 @@ That is all.  No GitHub secrets, no tokens pasted anywhere.
 
 ## Re-provisioning the login (when it dies)
 
-Symptoms: the Claude card on the page goes stale, and the log shows `refresh_failed_relogin_needed`, `401_after_refresh`, `401_and_no_refresh_token`, or `no_credentials`.  Causes are a revoked session, a password change, or the sampler not having run for long enough that the refresh token itself expired (the credentials file carries a `refreshTokenExpiresAt`; a 3-day outage in October 2026 did **not** kill it, the first run afterwards refreshed cleanly).
+Symptoms: the Claude card on the page goes stale, and the log shows `refresh_failed_relogin_needed`, `401_after_refresh`, `401_and_no_refresh_token`, or `no_credentials`.  Causes are a revoked session, a password change, or the refresh token reaching its fixed expiry.  The credentials file carries a `refreshTokenExpiresAt`, roughly four weeks after the login, and refreshing does **not** push it out: the login dies on that date even while the lane is sampling every 15 minutes (the November 2026 incident below).  An outage alone does not kill it; a 3-day outage in October 2026 refreshed cleanly afterwards.
 
-Fix: repeat setup step 2 above (the same `claude login` with the sampler config dir).  The task picks the new login up on its next run; nothing else changes.  The sampler never retries in a loop, so a dead login costs one failed refresh per 15 minutes and nothing more.
+Fix: repeat setup step 2 above with the sampler config dir.  `claude auth login --claudeai` does the same as `claude login` but skips the subscription/Console menu, which is handy over remote desktop where arrow keys may not get through:
+
+```powershell
+$env:CLAUDE_CONFIG_DIR = "$env:USERPROFILE\.claude-sampler"; claude auth login --claudeai
+```  The task picks the new login up on its next run; nothing else changes.  The sampler never retries in a loop, so a dead login costs one failed refresh per 15 minutes and nothing more.
 
 To check the login without touching tokens, read only the metadata:
 
@@ -132,6 +136,9 @@ Log lines and what they mean:
 
 **2026-10-15 06:45 EDT to 2026-10-18 22:33 EDT: no samples (lane flagged STALE).**
 The Microsoft Store updated PowerShell from 7.6.6 to 7.6.7 on 2026-10-14.  The task had been registered with `pwsh.exe` resolved to the Store's versioned folder (`C:\Program Files\WindowsApps\Microsoft.PowerShell_7.6.6.0_x64__8wekyb3d8bbwe\pwsh.exe`).  The old folder was removed after the update; the PC then slept from the morning of the 15th, and from 2026-10-16 01:23 every 15-minute trigger failed to launch with 0x80070002 (278 failures in Task Scheduler's log, nothing in the lane log because pwsh never started).  The credential was unaffected: the first manual run on the 18th refreshed the token and sampled normally, and the local clone was level with origin, so nothing was lost in the push path.  Fix: `install-task.ps1` now resolves pwsh to a version-independent path (MSI path or the Store alias) and refuses a versioned one; the task was re-registered and three consecutive scheduled cycles were verified landing on GitHub.  Lesson for any Store-installed tool a task depends on: never point a scheduled task at `C:\Program Files\WindowsApps\<package>_<version>_...`.
+
+**2026-11-07 21:15 EST to 2026-11-11 03:45 EST: no samples (lane flagged STALE).**
+The sampler's login reached its fixed refresh-token expiry.  `refreshTokenExpiresAt` in `.credentials.json` was 2026-11-07 22:39Z (5:39 PM EST); rotating the token on each refresh did **not** extend that date.  The access token from the last good refresh (Nov 7, 1:30 PM EST) stayed valid until 02:30Z Nov 8 (9:30 PM EST), so sampling continued until the 21:15 EST sample; from the next cycle on, every refresh was refused (`refresh_failed_relogin_needed`, `platform.claude.com returned status 400`), one failure per 15 minutes.  Not a repeat of October: the task launched every cycle with `LastTaskResult` 0 via the Store alias, the PC was on, and the clone was clean and level with origin, so nothing was stuck in the push path.  Fix: Jeff re-ran the setup step 2 login on 2026-11-11 at 3:34 AM EST, using `claude auth login --claudeai` (the flag skips the subscription/Console menu, which could not be navigated over remote desktop).  The new login's `refreshTokenExpiresAt` is 2026-12-10 05:05Z (Dec 9, 12:05 AM EST).  First new sample 2026-11-11T08:45:15Z, seven_day 3%; the 03:45, 04:00 and 04:15 EST scheduled cycles each logged `status=ok rows=3` and `pushed`, and their commits are on `origin/main`.  Lesson: the login lasts about four weeks no matter how healthy the lane is; plan a re-login before `refreshTokenExpiresAt`, not after the lane goes stale.
 
 ## Notes for whoever picks this up cold
 
