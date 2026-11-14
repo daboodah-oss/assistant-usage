@@ -10511,3 +10511,8 @@ timestamp_utc,usage_pct,plan,reset_iso,window,raw
 2026-11-13T23:34:49+00:00,1,SuperGrok Heavy,2026-11-20T12:53:06.777570+00:00,weekly_GrokVoice,product=GrokVoice 1%
 2026-11-13T23:39:50+00:00,90.2,SuperGrok Heavy,2026-11-16T03:53:00+00:00,grok_bot,"source=grok_bot_usage weekly=90.2% (platform reading; percent and reset included when the reading is available, not omitted under 1% the way the SuperGrok billing field is)"
 2026-11-13T23:49:23+00:00,90.3,SuperGrok Heavy,2026-11-16T03:53:00+00:00,grok_bot,"source=grok_bot_usage weekly=90.3% (platform reading; percent and reset included when the reading is available, not omitted under 1% the way the SuperGrok billing field is)"
+2026-11-14T00:04:48+00:00,1,SuperGrok Heavy,2026-11-20T12:53:06.777570+00:00,weekly,"source=billing weekly=1% products=GrokChat:0,GrokTasks:0,GrokVoice:1"
+2026-11-14T00:04:48+00:00,0,SuperGrok Heavy,2026-11-20T12:53:06.777570+00:00,weekly_GrokChat,product=GrokChat 0%
+2026-11-14T00:04:48+00:00,0,SuperGrok Heavy,2026-11-20T12:53:06.777570+00:00,weekly_GrokTasks,product=GrokTasks 0%
+2026-11-14T00:04:48+00:00,1,SuperGrok Heavy,2026-11-20T12:53:06.777570+00:00,weekly_GrokVoice,product=GrokVoice 1%
+2026-11-14T00:05:21+00:00,90.5,SuperGrok Heavy,2026-11-16T03:53:00+00:00,grok_bot,"source=grok_bot_usage weekly=90.5% (platform reading; percent and reset included when the reading is available, not omitted under 1% the way the SuperGrok billing field is)"
