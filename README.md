@@ -60,7 +60,7 @@ host root, and adding any `id` would change the app's identity for copies
 already installed. The maskable icon (`icons/icon-maskable-512.png`) is
 generated from `icons/icon-512.png` by `tools/make_maskable.py`. There is
 no service worker: the page has no install button and nothing that needs
-offline caching, so the worker was retired — `sw.js` is a stub that
-deletes the old caches and unregisters itself on clients that still have
-it. The stub must stay served for at least 30 days after this lands;
-after that, `sw.js` can be deleted.
+offline caching, so the worker was retired — `sw.js` was served as a
+stub that deleted the old caches and unregistered itself on clients
+that still had it; after 30+ days served, the stub was deleted on
+2026-11-15.
