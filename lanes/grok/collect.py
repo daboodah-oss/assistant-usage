@@ -70,7 +70,8 @@ def main():
     pct = fmt(rec["weekly_used_pct"])
     prods = rec.get("products") or {}
     rows = [[ts.isoformat(), pct, plan, reset, "weekly",
-             ("source=%s weekly=%s%% products=%s" % (rec.get("source"), pct,
+             ("source=%s%s weekly=%s%% products=%s" % (rec.get("source"),
+              " inferred_zero(<1%,field omitted by server)" if rec.get("inferred_zero") else "", pct,
               ",".join("%s:%s" % (k, fmt(v)) for k, v in sorted(prods.items()) if num(v))))[:500]]]
     for name, v in sorted(prods.items()):
         if num(v):
