@@ -8,6 +8,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with: {fetch-depth: 50}
       - uses: actions/setup-python@v5
         with: {python-version: '3.12'}
       - run: python3 site/build.py
@@ -15,4 +16,13 @@ jobs:
           git config user.name "Budzilla"
           git config user.email "budzilla@noreply.github.com"
           git add index.html
-          git diff --cached --quiet || (git commit -m "Site build (auto)" && git push)
+          if git diff --cached --quiet; then echo "no site changes"; exit 0; fi
+          git commit -m "Site build (auto)"
+          for i in 1 2 3; do
+            git fetch origin main
+            if ! git rebase origin/main; then git rebase --abort; echo "rebase conflict"; exit 1; fi
+            if git push origin main; then echo "site pushed"; exit 0; fi
+            sleep 5
+          done
+          echo "site push failed after 3 attempts"
+          exit 1
