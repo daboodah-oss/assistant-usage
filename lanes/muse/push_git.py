@@ -56,6 +56,27 @@ def main():
         if not git("status", "--porcelain").stdout.strip():
             print("pusher: unchanged, nothing to push")
             return 0
+        # Append-only guard (contract rule 1, enforced): the staged
+        # diff must delete 0 lines and the file must end in a newline.
+        # A truncated or recreated local CSV would otherwise
+        # fast-forward a history deletion onto main.
+        if os.path.getsize(DST) == 0:
+            print("pusher: guard: CSV is empty; pushing nothing",
+                  file=sys.stderr)
+            return 1
+        with open(DST, "rb") as f:
+            f.seek(-1, os.SEEK_END)
+            if f.read() != b"\n":
+                print("pusher: guard: CSV does not end in a newline; "
+                      "pushing nothing", file=sys.stderr)
+                return 1
+        numstat = git("diff", "--cached", "--numstat", "--",
+                      "data/muse/usage.csv").stdout.strip()
+        deletions = numstat.split("\t")[1] if "\t" in numstat else "?"
+        if deletions != "0":
+            print(f"pusher: guard: staged diff deletes {deletions} "
+                  f"lines; pushing nothing", file=sys.stderr)
+            return 1
         r = git("commit", "-m", "Muse lane sample (auto)")
         if r.returncode != 0:
             print(f"pusher: commit failed: {r.stderr.strip()[:200]}", file=sys.stderr)

@@ -17,4 +17,10 @@ exists on Budzilla's VM — so this lane runs there, not in GitHub Actions.
   pusher"), reaching ssh.github.com:443 through the VM egress proxy's HTTP
   CONNECT tunnel (`ssh_proxy.py`); the clone's `core.sshCommand` wires both.
   If pushes fail with auth errors, check that deploy key still exists.
+- `watch_grok.py` runs at the end of the same cron: an off-box freshness
+  watch for the grok lane (Jeff approved 2026-11-15). If the newest
+  `window=weekly` row in `data/grok/usage.csv` on main is over 2 hours
+  old, it prints one alert line for Jeff; a state file next to the muse
+  CSV keeps it to one alert per outage. It exists because a Grok-side
+  outage (pool exhausted, box hibernated) silences every on-box alarm.
 - The collector auto-detects plan changes (free → power on 2026-10-10).
