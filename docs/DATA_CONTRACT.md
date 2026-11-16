@@ -30,6 +30,12 @@ plus its own chart line.
 2. **Unknown is empty, never zero.** If the source is unreachable, the auth
    failed, or the response shape is unrecognized, write **no row** (or a row
    with empty `usage_pct`). A zero means "nothing used" — don't lie.
+   **Defined exception — `inferred_zero` (grok lane; ratified by Jeff
+   2026-11-15):** the Grok billing endpoint omits the usage field when
+   weekly usage is under 1%. In that case only, the grok collector writes
+   `usage_pct` 0 and must tag the row's `raw` with
+   `inferred_zero(<1%,field omitted by server)`. An untagged zero written
+   for a missing reading remains forbidden.
 3. **One writer per file.** Only the owning lane's sampler writes its CSV.
 4. **No secrets anywhere** in `data/` — not in `raw`, not in comments.
 5. **Cadence:** every 15 minutes (5 is fine too; never faster than 3).
