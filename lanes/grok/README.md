@@ -1,45 +1,70 @@
-# Grok lane (owner: Keela / Grok) — owner-hosted (deployment pattern B)
+# Grok lane (owner: Keela) — owner-hosted (deployment pattern B)
 
-The Grok lane runs entirely on Keela's Grok Bot box. No GitHub secrets, no lane
-workflow file: the Grok refresh token rotates on every use and Actions cannot
-write rotated tokens back into repo secrets.
+The Grok lane runs on Keela's Grok Bot box. No GitHub Actions secrets and no lane workflow:
+the Grok refresh token rotates on every use and must live in exactly one place (the box).
+
+Design of record: `docs/reviews/grok-feed-design-keela-rev3-2026-11-15.md` (approved by Jeff,
+Nov 15, 2026).
+
+## The one rule about time
+
+**Nothing on the box runs while the box is hibernated.** The platform freezes the whole box
+when no AI session is active, and every loop on it (tracker, heartbeat) freezes too. The only
+clock is the AI wake: one thin wake every 30 minutes (wake plan W2) runs `feed-run.sh` and
+stops. Freshness is therefore "about every 30 minutes", and when the shared usage pool is
+exhausted no wake can run at all; only off-box checks (Budzilla's weekly-row watch, the
+healthchecks.io feed check) can notice that.
 
 ## Pieces
 
 | Piece | Where | What |
 |-------|-------|------|
-| Tracker | `/workspace/grok-usage/grok_usage_tracker.py` (box) | Polls the Grok CLI billing endpoint every 5 min, appends JSON lines to `/workspace/grok-usage/usage_log.jsonl` |
-| Collector | `lanes/grok/collect.py` (copy on box at `/workspace/assistant-usage/lanes/grok/collect.py`) | Converts the newest tracker reading into rows in `data/grok/usage.csv` |
-| Keep-alive | `/workspace/ops/box-bootstrap.sh` (box, runs hourly) | Restarts the tracker if it is not running (e.g. after a box rebuild) |
-| Routine | Keela's 15-minute Grok routine | Runs `collect.py`, checks `/workspace/assistant-usage/push-grok.sh`, commits `data/grok/usage.csv` to `main` via the GitHub connector when changed |
+| Wake | AI routine, every 30 min | Reads the Grok Bot weekly % and reset from the platform usage reading, runs `feed-run.sh --grok-bot-pct P --grok-bot-reset ISO`, relays only `FAIL`/`ALERT`/`ACTION` lines |
+| Runner | `lanes/grok/feed-run.sh` (run from the clone) | Lock, clone setup/fetch, loads this run's code from `origin/main`, box bootstrap, one reading, weekly rows, `grok_bot` row, comparison, push, status, heartbeat ping |
+| Tracker | `/workspace/grok-usage/grok_usage_tracker.py` (box only) | Grok CLI billing/settings reads; loop every 5 min while awake; every poll holds `.poll.lock` |
+| One reading | `lanes/grok/take_reading.py` | One tracker poll under the same `.poll.lock` (R8), so it never races the loop's token refresh. Falls back to waiting for the loop if the tracker has no lock |
+| Collector | `lanes/grok/collect.py` | Newest reading -> `weekly` + `weekly_<product>` rows (only if `ok`, has a %, < 20 min old). `plan` = tracker tier as the settings endpoint reports it |
+| Grok Bot appender | `lanes/grok/append_grok_bot.py` | One `grok_bot` row; `PLAN = "Ultra"`; `--source platform` (option A) or `billing_product` (option B) |
+| Comparison | `lanes/grok/grokbot_compare.py` | Platform vs billing `weekly_GrokBot` pairs from the Nov 21, 2026 reset; applies Jeff's switch/keep/extend rule |
+| Pusher | `lanes/grok/push_feed.py` | Transport clone, full-cycle retry x3, byte-prefix + append-only + newline + no-token guards, never forced |
+| Transport | `lanes/grok/ssh_proxy.py` + deploy key | SSH to ssh.github.com:443 through the box's HTTP CONNECT egress proxy |
+| Config | `lanes/grok/feed.conf` | `GROK_BOT_SOURCE=platform` until the comparison rule switches it |
+
+Box paths: lane CSV (source of truth) `/workspace/assistant-usage/data/grok/usage.csv`;
+transport clone `/workspace/assistant-usage-clone`; state `/workspace/grok-feed/state`
+(`status.json`, `status.log`, `grokbot-compare/`, `run/` = this run's code copy).
+
+## Running it
+
+```
+bash /workspace/assistant-usage-clone/lanes/grok/feed-run.sh --grok-bot-pct 10.9 --grok-bot-reset 2026-11-22T02:41:00+00:00
+bash /workspace/assistant-usage-clone/lanes/grok/feed-run.sh --dry-run     # scratch CSV, no push, no ping
+bash /workspace/assistant-usage-clone/lanes/grok/feed-run.sh --setup       # clone + config only
+```
+
+Last line: `GROK_FEED OK|WARN|FAIL|SKIP|DRYRUN ...`. `WARN` = pushed but no fresh weekly row
+this run (stale/failed reading). Exit 1 only on `FAIL`. `ALERT boxchrome a->b` and `ACTION ...`
+lines are printed above it when they occur.
 
 ## Auth
 
-The tracker uses the Grok CLI login stored in `~/.grok/auth.json` on the box.
-The tracker refreshes it itself (shortly before expiry, writing the rotated
-token back to that file); the platform restores the file on box rebuilds.
-Nothing token-related is ever logged, copied into this repo, or sent to GitHub.
-
-**Re-provisioning** (tracker logs `refresh_failed` / `skipped_auth`, or the
-Grok panel goes stale): run `grok login` on the box. Keela can do it, or hand
-Jeff the browser sign-in link. Then run `/workspace/ops/box-bootstrap.sh`.
+- Push: deploy key `~/.ssh/grok_feed_deploy` (see `docs/SECRETS.md`). Fetch is anonymous HTTPS
+  (public repo). If the repo goes private, set `remote.origin.url` to the SSH URL too.
+- Grok: the CLI login in `~/.grok/auth.json`, refreshed by the tracker (under `.poll.lock`).
+  Re-provisioning (`refresh_failed` / `skipped_auth` in the tracker log): `grok login` on the box.
+- Nothing token-related is ever logged, committed or sent to GitHub; the pusher refuses appended
+  bytes that look like a token.
 
 ## Contract mapping (docs/DATA_CONTRACT.md)
 
 | CSV column | Source |
 |------------|--------|
-| `timestamp_utc` | tracker reading `ts`, converted to UTC (seconds) |
-| `usage_pct` | `weekly_used_pct` = billing `creditUsagePercent` (`window=weekly`); per-product `productUsage[]` % (`window=weekly_<product>`) |
-| `plan` | tracker `tier` (`subscription_tier_display`, e.g. `SuperGrok Heavy`) |
-| `reset_iso` | tracker `period_end` = billing `currentPeriod.end` |
-| `raw` | short summary of source + percentages (no secrets) |
+| `timestamp_utc` | tracker reading `ts` in UTC (weekly rows); run time (grok_bot rows) |
+| `usage_pct` | `weekly` = billing `creditUsagePercent`; `weekly_<product>` = `productUsage[]` %; `grok_bot` = platform Grok Bot weekly % (option A) |
+| `plan` | weekly rows: tracker `tier` (`subscription_tier_display`); grok_bot rows: `Ultra` |
+| `reset_iso` | billing `currentPeriod.end`; grok_bot: platform reset |
+| `raw` | short source summary, no secrets; `inferred_zero(<1%,field omitted by server)` tag pending Jeff's rule-2 ruling |
 
-Rules: append-only; if the newest reading is not `ok`, older than 20 minutes,
-or lacks the % (`usage_not_reported`), **no row is written** (never zero).
-A reading already recorded (or < 2 min after the last row) is skipped.
-
-```
-python3 lanes/grok/collect.py [--out data/grok/usage.csv] [--log /workspace/grok-usage/usage_log.jsonl]
-```
-
-- Spec: `PROMPT.md` (v2)
+Rules: append-only (enforced by the pusher's byte-prefix guard); new rows end in LF
+(`lineterminator="\n"`), existing CRLF rows stay as they are; no row when the reading is not
+`ok`, older than 20 minutes or lacks the %; at most one row per window per run.

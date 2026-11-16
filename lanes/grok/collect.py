@@ -80,7 +80,7 @@ def main():
     os.makedirs(os.path.dirname(os.path.abspath(a.out)), exist_ok=True)
     new = not os.path.exists(a.out) or os.path.getsize(a.out) == 0
     with open(a.out, "a", newline="") as f:
-        w = csv.writer(f)
+        w = csv.writer(f, lineterminator="\n")
         if new:
             w.writerow(HEADER)
         w.writerows(rows)

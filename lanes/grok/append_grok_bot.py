@@ -4,7 +4,12 @@
 Leaves existing weekly / weekly_<product> rows untouched. Writes nothing
 if usage_pct or reset_iso is missing or invalid — never a guessed zero.
 
-Usage: append_grok_bot.py --pct 44.5 --reset 2026-11-16T03:53:00+00:00
+Usage: append_grok_bot.py --pct 44.5 --reset 2026-11-16T03:53:00+00:00 [--source platform|billing_product]
+
+--source platform (default, option A): the percent is the platform usage reading.
+--source billing_product (option B, only after the comparison rule in grokbot_compare.py
+switches it and docs/DATA_CONTRACT.md is amended): the percent is the billing endpoint's
+weekly_GrokBot product percent.
 """
 import argparse, csv, os, sys
 from datetime import datetime, timezone, timedelta
@@ -12,7 +17,7 @@ from datetime import datetime, timezone, timedelta
 DEFAULT_OUT = "/workspace/assistant-usage/data/grok/usage.csv"
 HEADER = ["timestamp_utc", "usage_pct", "plan", "reset_iso", "window", "raw"]
 MIN_GAP = timedelta(minutes=2)
-PLAN = "SuperGrok Heavy"
+PLAN = "Ultra"  # Jeff, Nov 15 2026: Grok Bot draws on the unified Ultra weekly limit
 
 
 def num(v):
@@ -54,6 +59,7 @@ def main():
     ap.add_argument("--reset", required=True)
     ap.add_argument("--out", default=DEFAULT_OUT)
     ap.add_argument("--plan", default=PLAN)
+    ap.add_argument("--source", choices=["platform", "billing_product"], default="platform")
     a = ap.parse_args()
     try:
         pct = float(a.pct)
@@ -73,16 +79,19 @@ def main():
     if prev and (ts <= prev or ts - prev < MIN_GAP):
         print("grok_bot append: already have this sample (%s) -> skip" % prev.isoformat())
         return 0
-    raw = (
-        "source=grok_bot_usage weekly=%s%% "
-        "(platform reading; percent and reset included when the reading is available, "
-        "not omitted under 1%% the way the SuperGrok billing field is)" % fmt(pct)
-    )[:500]
+    if a.source == "billing_product":
+        raw = ("source=billing_product weekly=%s%% (billing endpoint productUsage GrokBot)" % fmt(pct))[:500]
+    else:
+        raw = (
+            "source=grok_bot_usage weekly=%s%% "
+            "(platform reading; percent and reset included when the reading is available, "
+            "not omitted under 1%% the way the SuperGrok billing field is)" % fmt(pct)
+        )[:500]
     row = [ts.isoformat(), fmt(pct), a.plan or PLAN, reset, "grok_bot", raw]
     os.makedirs(os.path.dirname(os.path.abspath(a.out)), exist_ok=True)
     new = not os.path.exists(a.out) or os.path.getsize(a.out) == 0
     with open(a.out, "a", newline="") as f:
-        w = csv.writer(f)
+        w = csv.writer(f, lineterminator="\n")
         if new:
             w.writerow(HEADER)
         w.writerow(row)
