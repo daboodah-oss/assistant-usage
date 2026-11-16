@@ -6127,3 +6127,6 @@ timestamp_utc,usage_pct,plan,reset_iso,window,raw
 2026-11-16T10:45:05+00:00,0,pro,,five_hour,"{""utilization"":0.0,""resets_at"":null}"
 2026-11-16T10:45:05+00:00,20,pro,2026-11-16T21:59:59.902862+00:00,weekly_fable,"{""kind"":""weekly_scoped"",""percent"":20,""resets_at"":""2026-11-16T21:59:59.902862+00:00"",""model"":""Fable""}"
 2026-11-16T10:45:05+00:00,16,pro,2026-11-16T21:59:59.902424+00:00,seven_day,"{""utilization"":16.0,""resets_at"":""2026-11-16T21:59:59.902424+00:00""}"
+2026-11-16T11:00:02+00:00,0,pro,,five_hour,"{""utilization"":0.0,""resets_at"":null}"
+2026-11-16T11:00:02+00:00,20,pro,2026-11-16T22:00:00.051297+00:00,weekly_fable,"{""kind"":""weekly_scoped"",""percent"":20,""resets_at"":""2026-11-16T22:00:00.051297+00:00"",""model"":""Fable""}"
+2026-11-16T11:00:02+00:00,16,pro,2026-11-16T22:00:00.050941+00:00,seven_day,"{""utilization"":16.0,""resets_at"":""2026-11-16T22:00:00.050941+00:00""}"
