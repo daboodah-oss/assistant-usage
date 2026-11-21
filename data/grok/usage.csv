@@ -12171,3 +12171,45 @@ timestamp_utc,usage_pct,plan,reset_iso,window,raw
 2026-11-21T19:43:57+00:00,8,Ultra,2026-11-22T02:41:26.396+00:00,weekly_GrokImagine,product=GrokImagine 8%
 2026-11-21T19:43:57+00:00,2,Ultra,2026-11-22T02:41:26.396+00:00,weekly_GrokTasks,product=GrokTasks 2%
 2026-11-21T19:43:57+00:00,47.3,Ultra,2026-11-22T02:41:00+00:00,grok_bot,"source=grok_bot_usage weekly=47.3% (platform reading; percent and reset included when the reading is available, not omitted under 1% the way the SuperGrok billing field is)"
+2026-11-21T20:06:12+00:00,47,Ultra,2026-11-22T02:41:26.396+00:00,weekly,"source=billing weekly=47% products=Cursor:1,GrokBot:36,GrokImagine:8,GrokTasks:2 api_tier=SuperGrok Heavy"
+2026-11-21T20:06:12+00:00,1,Ultra,2026-11-22T02:41:26.396+00:00,weekly_Cursor,product=Cursor 1%
+2026-11-21T20:06:12+00:00,36,Ultra,2026-11-22T02:41:26.396+00:00,weekly_GrokBot,product=GrokBot 36%
+2026-11-21T20:06:12+00:00,8,Ultra,2026-11-22T02:41:26.396+00:00,weekly_GrokImagine,product=GrokImagine 8%
+2026-11-21T20:06:12+00:00,2,Ultra,2026-11-22T02:41:26.396+00:00,weekly_GrokTasks,product=GrokTasks 2%
+2026-11-21T20:06:12+00:00,47.3,Ultra,2026-11-22T02:41:00+00:00,grok_bot,"source=grok_bot_usage weekly=47.3% (platform reading; percent and reset included when the reading is available, not omitted under 1% the way the SuperGrok billing field is)"
+2026-11-21T20:45:59+00:00,47,Ultra,2026-11-22T02:41:26.396+00:00,weekly,"source=billing weekly=47% products=Cursor:1,GrokBot:36,GrokImagine:8,GrokTasks:2 api_tier=SuperGrok Heavy"
+2026-11-21T20:45:59+00:00,1,Ultra,2026-11-22T02:41:26.396+00:00,weekly_Cursor,product=Cursor 1%
+2026-11-21T20:45:59+00:00,36,Ultra,2026-11-22T02:41:26.396+00:00,weekly_GrokBot,product=GrokBot 36%
+2026-11-21T20:45:59+00:00,8,Ultra,2026-11-22T02:41:26.396+00:00,weekly_GrokImagine,product=GrokImagine 8%
+2026-11-21T20:45:59+00:00,2,Ultra,2026-11-22T02:41:26.396+00:00,weekly_GrokTasks,product=GrokTasks 2%
+2026-11-21T20:46:00+00:00,47.4,Ultra,2026-11-22T02:41:00+00:00,grok_bot,"source=grok_bot_usage weekly=47.4% (platform reading; percent and reset included when the reading is available, not omitted under 1% the way the SuperGrok billing field is)"
+2026-11-21T21:14:58+00:00,47,Ultra,2026-11-22T02:41:26.396+00:00,weekly,"source=billing weekly=47% products=Cursor:1,GrokBot:36,GrokImagine:8,GrokTasks:2 api_tier=SuperGrok Heavy"
+2026-11-21T21:14:58+00:00,1,Ultra,2026-11-22T02:41:26.396+00:00,weekly_Cursor,product=Cursor 1%
+2026-11-21T21:14:58+00:00,36,Ultra,2026-11-22T02:41:26.396+00:00,weekly_GrokBot,product=GrokBot 36%
+2026-11-21T21:14:58+00:00,8,Ultra,2026-11-22T02:41:26.396+00:00,weekly_GrokImagine,product=GrokImagine 8%
+2026-11-21T21:14:58+00:00,2,Ultra,2026-11-22T02:41:26.396+00:00,weekly_GrokTasks,product=GrokTasks 2%
+2026-11-21T21:14:58+00:00,47.4,Ultra,2026-11-22T02:41:00+00:00,grok_bot,"source=grok_bot_usage weekly=47.4% (platform reading; percent and reset included when the reading is available, not omitted under 1% the way the SuperGrok billing field is)"
+2026-11-21T21:44:06+00:00,47,Ultra,2026-11-22T02:41:26.396+00:00,weekly,"source=billing weekly=47% products=Cursor:1,GrokBot:36,GrokImagine:8,GrokTasks:2 api_tier=SuperGrok Heavy"
+2026-11-21T21:44:06+00:00,1,Ultra,2026-11-22T02:41:26.396+00:00,weekly_Cursor,product=Cursor 1%
+2026-11-21T21:44:06+00:00,36,Ultra,2026-11-22T02:41:26.396+00:00,weekly_GrokBot,product=GrokBot 36%
+2026-11-21T21:44:06+00:00,8,Ultra,2026-11-22T02:41:26.396+00:00,weekly_GrokImagine,product=GrokImagine 8%
+2026-11-21T21:44:06+00:00,2,Ultra,2026-11-22T02:41:26.396+00:00,weekly_GrokTasks,product=GrokTasks 2%
+2026-11-21T21:44:07+00:00,47.4,Ultra,2026-11-22T02:41:00+00:00,grok_bot,"source=grok_bot_usage weekly=47.4% (platform reading; percent and reset included when the reading is available, not omitted under 1% the way the SuperGrok billing field is)"
+2026-11-21T22:08:25+00:00,47,Ultra,2026-11-22T02:41:26.396+00:00,weekly,"source=billing weekly=47% products=Cursor:1,GrokBot:36,GrokImagine:8,GrokTasks:2 api_tier=SuperGrok Heavy"
+2026-11-21T22:08:25+00:00,1,Ultra,2026-11-22T02:41:26.396+00:00,weekly_Cursor,product=Cursor 1%
+2026-11-21T22:08:25+00:00,36,Ultra,2026-11-22T02:41:26.396+00:00,weekly_GrokBot,product=GrokBot 36%
+2026-11-21T22:08:25+00:00,8,Ultra,2026-11-22T02:41:26.396+00:00,weekly_GrokImagine,product=GrokImagine 8%
+2026-11-21T22:08:25+00:00,2,Ultra,2026-11-22T02:41:26.396+00:00,weekly_GrokTasks,product=GrokTasks 2%
+2026-11-21T22:08:25+00:00,47.4,Ultra,2026-11-22T02:41:00+00:00,grok_bot,"source=grok_bot_usage weekly=47.4% (platform reading; percent and reset included when the reading is available, not omitted under 1% the way the SuperGrok billing field is)"
+2026-11-21T22:40:27+00:00,47,Ultra,2026-11-22T02:41:26.396+00:00,weekly,"source=billing weekly=47% products=Cursor:1,GrokBot:36,GrokImagine:8,GrokTasks:2 api_tier=SuperGrok Heavy"
+2026-11-21T22:40:27+00:00,1,Ultra,2026-11-22T02:41:26.396+00:00,weekly_Cursor,product=Cursor 1%
+2026-11-21T22:40:27+00:00,36,Ultra,2026-11-22T02:41:26.396+00:00,weekly_GrokBot,product=GrokBot 36%
+2026-11-21T22:40:27+00:00,8,Ultra,2026-11-22T02:41:26.396+00:00,weekly_GrokImagine,product=GrokImagine 8%
+2026-11-21T22:40:27+00:00,2,Ultra,2026-11-22T02:41:26.396+00:00,weekly_GrokTasks,product=GrokTasks 2%
+2026-11-21T22:40:27+00:00,47.4,Ultra,2026-11-22T02:41:00+00:00,grok_bot,"source=grok_bot_usage weekly=47.4% (platform reading; percent and reset included when the reading is available, not omitted under 1% the way the SuperGrok billing field is)"
+2026-11-21T23:14:41+00:00,47,Ultra,2026-11-22T02:41:26.396+00:00,weekly,"source=billing weekly=47% products=Cursor:1,GrokBot:36,GrokImagine:8,GrokTasks:2 api_tier=SuperGrok Heavy"
+2026-11-21T23:14:41+00:00,1,Ultra,2026-11-22T02:41:26.396+00:00,weekly_Cursor,product=Cursor 1%
+2026-11-21T23:14:41+00:00,36,Ultra,2026-11-22T02:41:26.396+00:00,weekly_GrokBot,product=GrokBot 36%
+2026-11-21T23:14:41+00:00,8,Ultra,2026-11-22T02:41:26.396+00:00,weekly_GrokImagine,product=GrokImagine 8%
+2026-11-21T23:14:41+00:00,2,Ultra,2026-11-22T02:41:26.396+00:00,weekly_GrokTasks,product=GrokTasks 2%
+2026-11-21T23:14:41+00:00,47.8,Ultra,2026-11-22T02:41:00+00:00,grok_bot,"source=grok_bot_usage weekly=47.8% (platform reading; percent and reset included when the reading is available, not omitted under 1% the way the SuperGrok billing field is)"
