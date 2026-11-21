@@ -5,7 +5,9 @@ Reads the newest reading from Keela's tracker log (/workspace/grok-usage/usage_l
 and appends rows to data/grok/usage.csv per docs/DATA_CONTRACT.md:
   window=weekly             usage_pct = creditUsagePercent (tracker: weekly_used_pct)
   window=weekly_<product>   usage_pct = productUsage[] percent (tracker: products)
-  reset_iso = billing currentPeriod.end (tracker: period_end), plan = tier.
+  reset_iso = billing currentPeriod.end (tracker: period_end), plan = PLAN ("Ultra").
+  The API tier string (settings subscription_tier_display, still "SuperGrok Heavy") is kept
+  in the weekly row's raw text as api_tier=..., not used as the plan label.
 Writes NOTHING (exit 0) if the newest reading is not ok, older than 20 min, or lacks the %.
 Never reads or writes credentials. Stdlib only.
 Usage: collect.py [--out PATH] [--log PATH]
@@ -18,6 +20,10 @@ DEFAULT_OUT = "/workspace/assistant-usage/data/grok/usage.csv"
 HEADER = ["timestamp_utc", "usage_pct", "plan", "reset_iso", "window", "raw"]
 MAX_AGE = timedelta(minutes=20)
 MIN_GAP = timedelta(minutes=2)
+# Jeff, Nov 21 2026: label the plan "Ultra" (unified Ultra plan since Nov 14 2026). The API's
+# subscription_tier_display still reads "SuperGrok Heavy", so it is not the label source.
+# Same constant as append_grok_bot.py. Override with GROK_PLAN if the plan changes.
+PLAN = os.environ.get("GROK_PLAN", "").strip() or "Ultra"
 
 
 def last_line(path):
@@ -65,14 +71,16 @@ def main():
     prev = last_ts(a.out)
     if prev and (ts <= prev or ts - prev < MIN_GAP):
         print("grok collect: already have this sample (%s) -> skip" % prev.isoformat()); return 0
-    plan = rec.get("tier") or ""
+    plan = PLAN
+    api_tier = rec.get("tier") or ""
     reset = rec.get("period_end") or ""
     pct = fmt(rec["weekly_used_pct"])
     prods = rec.get("products") or {}
     rows = [[ts.isoformat(), pct, plan, reset, "weekly",
              ("source=%s%s weekly=%s%% products=%s" % (rec.get("source"),
               " inferred_zero(<1%,field omitted by server)" if rec.get("inferred_zero") else "", pct,
-              ",".join("%s:%s" % (k, fmt(v)) for k, v in sorted(prods.items()) if num(v))))[:500]]]
+              ",".join("%s:%s" % (k, fmt(v)) for k, v in sorted(prods.items()) if num(v)))
+             + (" api_tier=%s" % api_tier if api_tier else ""))[:500]]]
     for name, v in sorted(prods.items()):
         if num(v):
             rows.append([ts.isoformat(), fmt(v), plan, reset, "weekly_" + name,
