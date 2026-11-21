@@ -120,8 +120,14 @@ if [ $BOOT = 1 ] && [ -f "$BOOTSTRAP" ]; then
   bl=$(timeout 60 bash "$BOOTSTRAP" 2>/dev/null 8>&- | tail -n1)
   chrome=$(sed -n 's/.*boxchrome=\([a-z]*\).*/\1/p' <<<"$bl"); tr_=$(sed -n 's/.* tracker=\([a-z]*\).*/\1/p' <<<"$bl")
   add "tracker=${tr_:-?} boxchrome=${chrome:-?}"
+  lw=$(sed -n 's/.* lock_window=\([a-z]*\).*/\1/p' <<<"$bl"); [ "$lw" = no ] || lw=yes   # absent/odd -> yes (old behavior)
   prev=$(cat "$STATE/boxchrome.last" 2>/dev/null || echo unknown)
-  if [ -n "$chrome" ] && [ "$prev" != unknown ] && [ "$prev" != "$chrome" ]; then echo "ALERT boxchrome $prev->$chrome at $(ts_et)"; fi
+  # idle (Jeff, Nov 21 2026): inside the lock window idle counts as down; outside it, only up<->down alerts.
+  if [ -n "$chrome" ] && [ "$prev" != unknown ] && [ "$prev" != "$chrome" ]; then
+    if [ "$lw" = yes ]; then pn=${prev/idle/down}; cn=${chrome/idle/down}; else pn=$prev; cn=$chrome; fi
+    if [ "$pn" != "$cn" ] && { [ "$lw" = yes ] || { [ "$prev" != idle ] && [ "$chrome" != idle ]; }; }; then
+      echo "ALERT boxchrome $prev->$chrome at $(ts_et)"; fi
+  fi
   [ -n "$chrome" ] && echo "$chrome" > "$STATE/boxchrome.last"
 else
   pgrep -f grok_usage_tracker.py >/dev/null && add "tracker=running" || {
