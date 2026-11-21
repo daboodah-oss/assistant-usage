@@ -117,7 +117,7 @@ GROK_BOT_SOURCE=platform; . "$RUN/feed.conf"
 # 4. box bootstrap: heartbeat, tracker restart, boxchrome (the keep-alive's checks, now free here)
 chrome=unknown
 if [ $BOOT = 1 ] && [ -f "$BOOTSTRAP" ]; then
-  bl=$(timeout 60 bash "$BOOTSTRAP" 2>/dev/null | tail -n1)
+  bl=$(timeout 60 bash "$BOOTSTRAP" 2>/dev/null 8>&- | tail -n1)
   chrome=$(sed -n 's/.*boxchrome=\([a-z]*\).*/\1/p' <<<"$bl"); tr_=$(sed -n 's/.* tracker=\([a-z]*\).*/\1/p' <<<"$bl")
   add "tracker=${tr_:-?} boxchrome=${chrome:-?}"
   prev=$(cat "$STATE/boxchrome.last" 2>/dev/null || echo unknown)
@@ -125,7 +125,7 @@ if [ $BOOT = 1 ] && [ -f "$BOOTSTRAP" ]; then
   [ -n "$chrome" ] && echo "$chrome" > "$STATE/boxchrome.last"
 else
   pgrep -f grok_usage_tracker.py >/dev/null && add "tracker=running" || {
-    add "tracker=not_running"; [ $DRY = 0 ] && setsid nohup bash "$TRACKER_DIR/start.sh" >/dev/null 2>&1 < /dev/null & }
+    add "tracker=not_running"; [ $DRY = 0 ] && setsid nohup bash "$TRACKER_DIR/start.sh" >/dev/null 2>&1 < /dev/null 8>&- & }
 fi
 
 # 5. one reading now (R8)
