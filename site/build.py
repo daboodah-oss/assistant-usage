@@ -74,6 +74,52 @@ def linreg_slope_pct_per_hour(pts):
     return sxy / sxx
 
 
+def cycle_history(weekly, window_hours, now):
+    """Per-cycle stats for a lane's headline (weekly) rows, newest first.
+
+    Rows are grouped by reset_iso; a row whose source omitted the reset
+    inherits the previous row's cycle (rows are chronological). The cycle
+    whose reset is still ahead is the current one.
+    """
+    et = ZoneInfo(LOCAL_TZ)
+    # Bucket by the reset's ET calendar date, not the raw reset string:
+    # some lanes report the reset with per-sample jitter (fractional
+    # seconds), which would otherwise shatter one cycle into hundreds of
+    # one-sample groups. Weekly cycles are 7 days apart, so a date bucket
+    # is unambiguous. The bucket's canonical reset is its latest reading.
+    groups = {}
+    last_reset = None
+    for r in weekly:
+        if r["reset_iso"]:
+            try:
+                last_reset = datetime.fromisoformat(r["reset_iso"])
+            except Exception:
+                pass
+        if last_reset is None:
+            continue
+        bkey = last_reset.astimezone(et).date()
+        g = groups.setdefault(bkey, {"reset": last_reset, "pts": []})
+        if last_reset > g["reset"]:
+            g["reset"] = last_reset
+        g["pts"].append(r)
+    out = []
+    for bkey in sorted(groups):
+        reset = groups[bkey]["reset"]
+        pts = groups[bkey]["pts"]
+        start = reset - timedelta(hours=window_hours)
+        out.append({
+            "start": start.astimezone(et).strftime("%b %d"),
+            "end": reset.astimezone(et).strftime("%b %d"),
+            "final_pct": pts[-1]["pct"],
+            "peak_pct": max(p["pct"] for p in pts),
+            "burn_per_hour": round(linreg_slope_pct_per_hour(pts), 3),
+            "samples": len(pts),
+            "current": reset > now,
+        })
+    out.reverse()
+    return out
+
+
 def main():
     now = datetime.now(timezone.utc)
     lanes = {}
@@ -191,9 +237,28 @@ def main():
             "projection": proj,
             "points": [{"t": r["ts"].isoformat(timespec="seconds"), "pct": r["pct"]}
                        for r in weekly],
+            "cycles": cycle_history(weekly, WINDOW_HOURS.get(win_name or "", 168.0), now),
         }
 
-    payload = {"generated_at": now.isoformat(timespec="seconds"), "lanes": lanes}
+    # Default chart window ("Current cycles" preset): from the oldest
+    # current-cycle start across lanes through the latest reset, so every
+    # lane's current cycle and its projection are in view. All headline
+    # windows are 7 days (see WINDOW_HOURS above).
+    starts, resets = [], []
+    for L in lanes.values():
+        if L["latest"] and L["latest"]["reset_iso"]:
+            try:
+                rt = datetime.fromisoformat(L["latest"]["reset_iso"])
+                resets.append(rt)
+                starts.append(rt - timedelta(hours=168.0))
+            except Exception:
+                pass
+    chart_window = None
+    if starts and resets:
+        chart_window = {"from": min(starts).isoformat(timespec="seconds"),
+                        "to": max(resets).isoformat(timespec="seconds")}
+    payload = {"generated_at": now.isoformat(timespec="seconds"), "lanes": lanes,
+               "chart_window": chart_window}
     built = now.astimezone(ZoneInfo(LOCAL_TZ)).strftime("%b %d, %Y %I:%M %p %Z")
 
     page = """<!DOCTYPE html>
@@ -257,6 +322,18 @@ def main():
   .timelab { display:flex; justify-content:space-between; font-size:.68rem; color:#66708a; margin-top:4px; }
   .panel { background:#131b2c; border:1px solid #26314a; border-radius:14px; padding:18px; margin-bottom:20px; }
   .panel h2 { font-size:1.05rem; margin:0 0 12px; }
+  .chartfilter { display:flex; flex-wrap:wrap; gap:8px; align-items:center; margin-bottom:14px; }
+  .fbtn { background:#182032; color:#9aa3b5; border:1px solid #26314a; border-radius:999px; padding:5px 12px; font-size:.8rem; cursor:pointer; font-family:inherit; }
+  .fbtn.active { color:#e8ecf4; border-color:#5aa2ff; }
+  .chartfilter label { font-size:.8rem; color:#9aa3b5; display:flex; align-items:center; gap:6px; }
+  .chartfilter input[type="date"] { background:#182032; color:#e8ecf4; border:1px solid #26314a; border-radius:8px; padding:4px 8px; font-family:inherit; font-size:.8rem; }
+  .histlane { margin-bottom:20px; }
+  .histlane:last-child { margin-bottom:0; }
+  .histlane h3 { font-size:.95rem; margin:0 0 8px; display:flex; align-items:center; gap:6px; }
+  .histtable { width:100%; border-collapse:collapse; font-size:.85rem; }
+  .histtable th { text-align:left; color:#9aa3b5; font-size:.7rem; text-transform:uppercase; letter-spacing:.06em; padding:4px 8px; border-bottom:1px solid #26314a; }
+  .histtable td { padding:5px 8px; border-bottom:1px solid #1d2740; color:#e8ecf4; }
+  .histtable .cur { color:#5aa2ff; font-size:.72rem; font-weight:600; text-transform:uppercase; letter-spacing:.05em; }
   canvas { width:100% !important; height:360px !important; }
   .foot { color:#66708a; font-size:.75rem; margin-top:28px; }
   @media (max-width:640px){ canvas{ height:280px !important; } }
@@ -265,10 +342,11 @@ def main():
   @media (min-width:1200px){
     .wrap { max-width:none; padding:24px 28px 64px; display:grid; column-gap:16px;
       grid-template-columns:minmax(0,1fr) 400px;
-      grid-template-areas:"head head" "sub sub" "chart cards" "foot foot"; }
+      grid-template-areas:"head head" "sub sub" "chart cards" "hist hist" "foot foot"; }
     .wrap > h1 { grid-area:head; }
     .wrap > .sub { grid-area:sub; }
     .wrap > .panel { grid-area:chart; margin-bottom:0; }
+    .wrap > .history { grid-area:hist; margin-top:20px; margin-bottom:0; }
     .wrap > .cards { grid-area:cards; display:flex; flex-direction:column; margin-bottom:0; }
     .wrap > .cards .card { flex:1; }
     .wrap > .foot { grid-area:foot; }
@@ -283,7 +361,18 @@ def main():
   <div class="cards" id="cards"></div>
   <div class="panel">
     <h2>% of own limit — all assistants</h2>
+    <div class="chartfilter" id="chartfilter">
+      <button type="button" class="fbtn" data-preset="cycles">Current cycles</button>
+      <button type="button" class="fbtn" data-preset="d30">30 days</button>
+      <button type="button" class="fbtn" data-preset="all">All history</button>
+      <label>From <input type="date" id="fFrom"></label>
+      <label>To <input type="date" id="fTo"></label>
+    </div>
     <canvas id="chart"></canvas>
+  </div>
+  <div class="panel history">
+    <h2>Cycle history</h2>
+    <div id="history"></div>
   </div>
   <p class="foot">Each assistant samples its own platform's subscription every ~15 minutes.
   Percentages are % of that platform's own limit, so the lines are comparable as "how hot
@@ -349,6 +438,13 @@ cards.innerHTML = Object.entries(DATA.lanes).map(([lane, L]) => {
     <div class="fuelwrap">${mark}<div class="fuelbar"><div style="width:${s.pct}%; background:${statusColor(s.pct)}"></div></div><div class="barlab"><span>0%</span><span><b>${rem.toFixed(0)}%</b> remaining${samplesNote}</span><span>100%</span></div>${st.time_pct != null ? `<div class="timebar" title="Time elapsed in the current 7-day window"><div style="width:${st.time_pct}%; background:${L.color}"></div></div>` : ''}</div>
     ${st.time_pct != null ? `<div class="timelab"><span>${st.time_start}</span><span>resets ${st.time_reset}</span></div>` : ''}${extraBlock}</div>`;
 }).join('');
+const histEl = document.getElementById('history');
+histEl.innerHTML = Object.entries(DATA.lanes)
+  .filter(([lane, L]) => L.cycles && L.cycles.length)
+  .map(([lane, L]) => `
+  <div class="histlane"><h3><span style="color:${L.color}">●</span> ${L.label}</h3>
+  <table class="histtable"><thead><tr><th>Cycle</th><th>Final</th><th>Peak</th><th>Burn</th><th>Samples</th><th></th></tr></thead>
+  <tbody>${L.cycles.map(c => `<tr><td>${c.start} – ${c.end}</td><td>${c.final_pct}%</td><td>${c.peak_pct}%</td><td>${c.burn_per_hour}%/h</td><td>${c.samples}</td><td>${c.current ? '<span class="cur">In progress</span>' : ''}</td></tr>`).join('')}</tbody></table></div>`).join('');
 const datasets = Object.entries(DATA.lanes)
   .filter(([lane, L]) => L.points.length)
   .map(([lane, L]) => ({
@@ -378,7 +474,7 @@ Object.entries(DATA.lanes).forEach(([lane, L]) => {
     tension: 0, pointRadius: 0, borderWidth: 1.5
   });
 });
-new Chart(document.getElementById('chart'), {
+const chart = new Chart(document.getElementById('chart'), {
   type: 'line',
   data: { datasets },
   options: {
@@ -391,6 +487,38 @@ new Chart(document.getElementById('chart'), {
     }
   }
 });
+// Chart date filter. Default ("Current cycles"): from the oldest current-
+// cycle start across lanes through the latest reset, so every lane's
+// current cycle (and its dashed projection) is in view.
+const cw = DATA.chart_window;
+const fFrom = document.getElementById('fFrom'), fTo = document.getElementById('fTo');
+const fbtns = Array.from(document.querySelectorAll('.fbtn'));
+const toDateInput = ms => { const d = new Date(ms); return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0'); };
+function applyRange(fromMs, toMs, preset) {
+  chart.options.scales.x.min = fromMs != null ? fromMs : undefined;
+  chart.options.scales.x.max = toMs != null ? toMs : undefined;
+  chart.update();
+  fbtns.forEach(b => b.classList.toggle('active', b.dataset.preset === preset));
+  if (fromMs != null) fFrom.value = toDateInput(fromMs);
+  if (toMs != null) fTo.value = toDateInput(toMs);
+}
+fbtns.forEach(b => b.addEventListener('click', () => {
+  const p = b.dataset.preset;
+  if (p === 'cycles' && cw) applyRange(new Date(cw.from).getTime(), new Date(cw.to).getTime(), 'cycles');
+  else if (p === 'd30' && cw) applyRange(Date.now() - 30 * 24 * 3600 * 1000, new Date(cw.to).getTime(), 'd30');
+  else applyRange(null, cw ? new Date(cw.to).getTime() : null, 'all');
+}));
+function customRange() {
+  const f = fFrom.value ? new Date(fFrom.value + 'T00:00:00').getTime() : null;
+  const t = fTo.value ? new Date(fTo.value + 'T23:59:59').getTime() : null;
+  chart.options.scales.x.min = f != null ? f : undefined;
+  chart.options.scales.x.max = t != null ? t : undefined;
+  chart.update();
+  fbtns.forEach(b => b.classList.remove('active'));
+}
+fFrom.addEventListener('change', customRange);
+fTo.addEventListener('change', customRange);
+if (cw) applyRange(new Date(cw.from).getTime(), new Date(cw.to).getTime(), 'cycles');
 </script>
 </body>
 </html>
