@@ -16,18 +16,54 @@ The staged diff is the only change check (no .last_pushed_sha). Every git call i
 non-interactive with a timeout. On final failure the rows stay in the local CSV and the
 next run retries. --dry-run does everything except the push (optionally probing auth with
 `git push --dry-run`), then resets the clone.
+HTTPS fallback (Jeff, Sat Nov 21 2026 7:00 PM ET): when the SSH push (origin pushurl) fails
+and GROK_FEED_GH_TOKEN (fine-grained token, assistant-usage only, Contents r/w) is set, the
+same commit is pushed over HTTPS to REPO_HTTPS HEAD:main (never forced). The token reaches git
+only through the environment: a credential helper set via GIT_CONFIG_* env vars expands
+$GROK_FEED_GH_TOKEN inside git's own shell, so the value is never in argv, a URL, .git/config,
+a file, or any output (all git output is scrubbed). With the variable unset, behavior and output
+are exactly as before.
 Prints one line starting with PUSH. Exit 0 = ok/noop/dry-run, 1 = fail.
 """
 import argparse, os, re, shutil, subprocess, sys, time
 
 REL = "data/grok/usage.csv"
+TOKEN_VAR = "GROK_FEED_GH_TOKEN"
+REPO_HTTPS = "https://github.com/daboodah-oss/assistant-usage.git"
 ENV = dict(os.environ, GIT_TERMINAL_PROMPT="0", GIT_ASKPASS="/bin/false", LC_ALL="C")
+ENV.pop(TOKEN_VAR, None)  # only the HTTPS fallback push gets the token
+# Credential helper text: references the variable by name; git's shell expands it at use time.
+CRED_HELPER = '!f() { test "$1" = get || exit 0; echo username=x-access-token; echo "password=${%s}"; }; f' % TOKEN_VAR
 SECRET_RX = re.compile(rb"(eyJ[\w-]{10,}\.[\w-]{10,}|gh[pousr]_[A-Za-z0-9]{20,}|github_pat_\w{20,}|"
                        rb"-----BEGIN [A-Z ]*PRIVATE KEY|[Bb]earer\s+[A-Za-z0-9._\-]{20,}|xai-[A-Za-z0-9]{20,})")
 
 
 class Fail(Exception):
     pass
+
+
+def scrub(text):
+    """Redact token-like material (and the token value itself) from git output."""
+    b = text.encode("utf-8", "replace") if isinstance(text, str) else text
+    tok = os.environ.get(TOKEN_VAR, "").encode()
+    if tok:
+        b = b.replace(tok, b"<scrubbed>")
+    return SECRET_RX.sub(b"<scrubbed>", b).decode("utf-8", "replace")
+
+
+def https_push(clone):
+    """Push HEAD:main over HTTPS with the token from the environment. Returns (rc, last_line)."""
+    env = dict(ENV, GIT_CONFIG_COUNT="2",
+               GIT_CONFIG_KEY_0="credential.helper", GIT_CONFIG_VALUE_0="",
+               GIT_CONFIG_KEY_1="credential.helper", GIT_CONFIG_VALUE_1=CRED_HELPER)
+    env[TOKEN_VAR] = os.environ[TOKEN_VAR]
+    try:
+        r = subprocess.run(["git", "-C", clone, "push", "--porcelain", REPO_HTTPS, "HEAD:main"],
+                           capture_output=True, timeout=120, env=env)
+    except subprocess.TimeoutExpired:
+        return 124, "https push timed out after 120s"
+    out = scrub(r.stderr or r.stdout).strip().splitlines()
+    return r.returncode, (out[-1] if out else "")[:200]
 
 
 def git(clone, *args, timeout=90, check=True):
@@ -139,6 +175,15 @@ def main():
             print("PUSH ok sha=%s rows=%d bytes=%d attempt=%d%s" % (sha, rows, nbytes, attempt, crw)); return 0
         out = (r.stderr or r.stdout).decode("utf-8", "replace").strip().splitlines()
         err = "push rejected: " + (out[-1] if out else "")[:200]
+        if os.environ.get(TOKEN_VAR):
+            ssh_err = scrub(out[-1] if out else "")[:120].replace(" ", "_")
+            hrc, hlast = https_push(a.clone)
+            if hrc == 0:
+                sha = git(a.clone, "rev-parse", "HEAD").stdout.decode().strip()
+                print("PUSH ok sha=%s rows=%d bytes=%d attempt=%d via=https_fallback ssh_err=%s%s"
+                      % (sha, rows, nbytes, attempt, ssh_err, crw)); return 0
+            err = "push rejected: ssh=%s https=%s" % ((out[-1] if out else "")[:100], hlast[:100])
+            err = scrub(err)
         time.sleep(5 * attempt)
     git(a.clone, "reset", "--quiet", "--hard", "origin/main", check=False)
     print("PUSH fail reason=%s attempts=%d" % ((err or "unknown").replace(" ", "_")[:300], a.attempts)); return 1
