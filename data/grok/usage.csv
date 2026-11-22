@@ -12248,3 +12248,56 @@ timestamp_utc,usage_pct,plan,reset_iso,window,raw
 2026-11-22T01:48:25+00:00,37,Ultra,2026-11-22T02:41:26.396+00:00,weekly_GrokBot,product=GrokBot 37%
 2026-11-22T01:48:25+00:00,9,Ultra,2026-11-22T02:41:26.396+00:00,weekly_GrokImagine,product=GrokImagine 9%
 2026-11-22T01:48:25+00:00,2,Ultra,2026-11-22T02:41:26.396+00:00,weekly_GrokTasks,product=GrokTasks 2%
+2026-11-22T02:15:05+00:00,49,Ultra,2026-11-22T02:41:26.396+00:00,weekly,"source=billing weekly=49% products=Cursor:1,GrokBot:37,GrokImagine:9,GrokTasks:2 api_tier=SuperGrok Heavy"
+2026-11-22T02:15:05+00:00,1,Ultra,2026-11-22T02:41:26.396+00:00,weekly_Cursor,product=Cursor 1%
+2026-11-22T02:15:05+00:00,37,Ultra,2026-11-22T02:41:26.396+00:00,weekly_GrokBot,product=GrokBot 37%
+2026-11-22T02:15:05+00:00,9,Ultra,2026-11-22T02:41:26.396+00:00,weekly_GrokImagine,product=GrokImagine 9%
+2026-11-22T02:15:05+00:00,2,Ultra,2026-11-22T02:41:26.396+00:00,weekly_GrokTasks,product=GrokTasks 2%
+2026-11-22T02:15:05+00:00,49.5,Ultra,2026-11-22T02:41:00+00:00,grok_bot,"source=grok_bot_usage weekly=49.5% (platform reading; percent and reset included when the reading is available, not omitted under 1% the way the SuperGrok billing field is)"
+2026-11-22T02:38:26+00:00,49,Ultra,2026-11-22T02:41:26.396+00:00,weekly,"source=billing weekly=49% products=Cursor:1,GrokBot:37,GrokImagine:9,GrokTasks:2 api_tier=SuperGrok Heavy"
+2026-11-22T02:38:26+00:00,1,Ultra,2026-11-22T02:41:26.396+00:00,weekly_Cursor,product=Cursor 1%
+2026-11-22T02:38:26+00:00,37,Ultra,2026-11-22T02:41:26.396+00:00,weekly_GrokBot,product=GrokBot 37%
+2026-11-22T02:38:26+00:00,9,Ultra,2026-11-22T02:41:26.396+00:00,weekly_GrokImagine,product=GrokImagine 9%
+2026-11-22T02:38:26+00:00,2,Ultra,2026-11-22T02:41:26.396+00:00,weekly_GrokTasks,product=GrokTasks 2%
+2026-11-22T02:38:26+00:00,49.7,Ultra,2026-11-22T02:41:00+00:00,grok_bot,"source=grok_bot_usage weekly=49.7% (platform reading; percent and reset included when the reading is available, not omitted under 1% the way the SuperGrok billing field is)"
+2026-11-22T03:13:08+00:00,0,Ultra,2026-11-29T02:41:26.396+00:00,weekly,"source=billing_absent_lt1pct inferred_zero(<1%,field omitted by server) weekly=0% products= api_tier=SuperGrok Heavy"
+2026-11-22T03:13:08+00:00,0,Ultra,2026-11-29T02:41:00+00:00,grok_bot,"source=grok_bot_usage weekly=0% (platform reading; percent and reset included when the reading is available, not omitted under 1% the way the SuperGrok billing field is)"
+2026-11-22T03:43:51+00:00,1,Ultra,2026-11-29T02:41:26.396+00:00,weekly,source=billing weekly=1% products=GrokBot:1 api_tier=SuperGrok Heavy
+2026-11-22T03:43:51+00:00,1,Ultra,2026-11-29T02:41:26.396+00:00,weekly_GrokBot,product=GrokBot 1%
+2026-11-22T04:07:53+00:00,1,Ultra,2026-11-29T02:41:26.396+00:00,weekly,source=billing weekly=1% products=GrokBot:1 api_tier=SuperGrok Heavy
+2026-11-22T04:07:53+00:00,1,Ultra,2026-11-29T02:41:26.396+00:00,weekly_GrokBot,product=GrokBot 1%
+2026-11-22T04:42:16+00:00,1,Ultra,2026-11-29T02:41:26.396+00:00,weekly,source=billing weekly=1% products=GrokBot:1 api_tier=SuperGrok Heavy
+2026-11-22T04:42:16+00:00,1,Ultra,2026-11-29T02:41:26.396+00:00,weekly_GrokBot,product=GrokBot 1%
+2026-11-22T04:42:16+00:00,0.5,Ultra,2026-11-29T02:41:00+00:00,grok_bot,"source=grok_bot_usage weekly=0.5% (platform reading; percent and reset included when the reading is available, not omitted under 1% the way the SuperGrok billing field is)"
+2026-11-22T05:15:14+00:00,1,Ultra,2026-11-29T02:41:26.396+00:00,weekly,source=billing weekly=1% products=GrokBot:1 api_tier=SuperGrok Heavy
+2026-11-22T05:15:14+00:00,1,Ultra,2026-11-29T02:41:26.396+00:00,weekly_GrokBot,product=GrokBot 1%
+2026-11-22T05:15:14+00:00,0.6,Ultra,2026-11-29T02:41:00+00:00,grok_bot,"source=grok_bot_usage weekly=0.6% (platform reading; percent and reset included when the reading is available, not omitted under 1% the way the SuperGrok billing field is)"
+2026-11-22T05:45:06+00:00,1,Ultra,2026-11-29T02:41:26.396+00:00,weekly,source=billing weekly=1% products=GrokBot:1 api_tier=SuperGrok Heavy
+2026-11-22T05:45:06+00:00,1,Ultra,2026-11-29T02:41:26.396+00:00,weekly_GrokBot,product=GrokBot 1%
+2026-11-22T05:45:06+00:00,0.7,Ultra,2026-11-29T02:41:00+00:00,grok_bot,"source=grok_bot_usage weekly=0.7% (platform reading; percent and reset included when the reading is available, not omitted under 1% the way the SuperGrok billing field is)"
+2026-11-22T06:07:48+00:00,1,Ultra,2026-11-29T02:41:26.396+00:00,weekly,source=billing weekly=1% products=GrokBot:1 api_tier=SuperGrok Heavy
+2026-11-22T06:07:48+00:00,1,Ultra,2026-11-29T02:41:26.396+00:00,weekly_GrokBot,product=GrokBot 1%
+2026-11-22T06:07:48+00:00,0.7,Ultra,2026-11-29T02:41:00+00:00,grok_bot,"source=grok_bot_usage weekly=0.7% (platform reading; percent and reset included when the reading is available, not omitted under 1% the way the SuperGrok billing field is)"
+2026-11-22T06:43:53+00:00,1,Ultra,2026-11-29T02:41:26.396+00:00,weekly,source=billing weekly=1% products=GrokBot:1 api_tier=SuperGrok Heavy
+2026-11-22T06:43:53+00:00,1,Ultra,2026-11-29T02:41:26.396+00:00,weekly_GrokBot,product=GrokBot 1%
+2026-11-22T06:43:53+00:00,0.8,Ultra,2026-11-29T02:41:00+00:00,grok_bot,"source=grok_bot_usage weekly=0.8% (platform reading; percent and reset included when the reading is available, not omitted under 1% the way the SuperGrok billing field is)"
+2026-11-22T07:14:16+00:00,1,Ultra,2026-11-29T02:41:26.396+00:00,weekly,source=billing weekly=1% products=GrokBot:1 api_tier=SuperGrok Heavy
+2026-11-22T07:14:16+00:00,1,Ultra,2026-11-29T02:41:26.396+00:00,weekly_GrokBot,product=GrokBot 1%
+2026-11-22T07:14:17+00:00,0.9,Ultra,2026-11-29T02:41:00+00:00,grok_bot,"source=grok_bot_usage weekly=0.9% (platform reading; percent and reset included when the reading is available, not omitted under 1% the way the SuperGrok billing field is)"
+2026-11-22T07:45:18+00:00,1,Ultra,2026-11-29T02:41:26.396+00:00,weekly,source=billing weekly=1% products=GrokBot:1 api_tier=SuperGrok Heavy
+2026-11-22T07:45:18+00:00,1,Ultra,2026-11-29T02:41:26.396+00:00,weekly_GrokBot,product=GrokBot 1%
+2026-11-22T07:45:18+00:00,1,Ultra,2026-11-29T02:41:00+00:00,grok_bot,"source=grok_bot_usage weekly=1% (platform reading; percent and reset included when the reading is available, not omitted under 1% the way the SuperGrok billing field is)"
+2026-11-22T08:15:29+00:00,1,Ultra,2026-11-29T02:41:26.396+00:00,weekly,source=billing weekly=1% products=GrokBot:1 api_tier=SuperGrok Heavy
+2026-11-22T08:15:29+00:00,1,Ultra,2026-11-29T02:41:26.396+00:00,weekly_GrokBot,product=GrokBot 1%
+2026-11-22T08:15:29+00:00,1,Ultra,2026-11-29T02:41:00+00:00,grok_bot,"source=grok_bot_usage weekly=1% (platform reading; percent and reset included when the reading is available, not omitted under 1% the way the SuperGrok billing field is)"
+2026-11-22T08:41:50+00:00,1,Ultra,2026-11-29T02:41:26.396+00:00,weekly,source=billing weekly=1% products=GrokBot:1 api_tier=SuperGrok Heavy
+2026-11-22T08:41:50+00:00,1,Ultra,2026-11-29T02:41:26.396+00:00,weekly_GrokBot,product=GrokBot 1%
+2026-11-22T08:41:50+00:00,1,Ultra,2026-11-29T02:41:00+00:00,grok_bot,"source=grok_bot_usage weekly=1% (platform reading; percent and reset included when the reading is available, not omitted under 1% the way the SuperGrok billing field is)"
+2026-11-22T09:15:22+00:00,1,Ultra,2026-11-29T02:41:26.396+00:00,weekly,source=billing weekly=1% products=GrokBot:1 api_tier=SuperGrok Heavy
+2026-11-22T09:15:22+00:00,1,Ultra,2026-11-29T02:41:26.396+00:00,weekly_GrokBot,product=GrokBot 1%
+2026-11-22T09:15:22+00:00,1,Ultra,2026-11-29T02:41:00+00:00,grok_bot,"source=grok_bot_usage weekly=1% (platform reading; percent and reset included when the reading is available, not omitted under 1% the way the SuperGrok billing field is)"
+2026-11-22T09:45:57+00:00,1,Ultra,2026-11-29T02:41:26.396+00:00,weekly,source=billing weekly=1% products=GrokBot:1 api_tier=SuperGrok Heavy
+2026-11-22T09:45:57+00:00,1,Ultra,2026-11-29T02:41:26.396+00:00,weekly_GrokBot,product=GrokBot 1%
+2026-11-22T09:45:57+00:00,1,Ultra,2026-11-29T02:41:00+00:00,grok_bot,"source=grok_bot_usage weekly=1% (platform reading; percent and reset included when the reading is available, not omitted under 1% the way the SuperGrok billing field is)"
+2026-11-22T10:09:01+00:00,1,Ultra,2026-11-29T02:41:26.396+00:00,weekly,source=billing weekly=1% products=GrokBot:1 api_tier=SuperGrok Heavy
+2026-11-22T10:09:01+00:00,1,Ultra,2026-11-29T02:41:26.396+00:00,weekly_GrokBot,product=GrokBot 1%
