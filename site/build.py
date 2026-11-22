@@ -333,10 +333,18 @@ def main():
   .histtable { width:100%; border-collapse:collapse; font-size:.85rem; }
   .histtable th { text-align:left; color:#9aa3b5; font-size:.7rem; text-transform:uppercase; letter-spacing:.06em; padding:4px 8px; border-bottom:1px solid #26314a; }
   .histtable td { padding:5px 8px; border-bottom:1px solid #1d2740; color:#e8ecf4; }
-  .histtable .cur { color:#5aa2ff; font-size:.72rem; font-weight:600; text-transform:uppercase; letter-spacing:.05em; }
+  .histtable .cur { color:#5aa2ff; font-size:.72rem; font-weight:600; text-transform:uppercase; letter-spacing:.05em; white-space:nowrap; }
+  .histwrap { overflow-x:auto; }
+  .histtable td:first-child { white-space:nowrap; }
   canvas { width:100% !important; height:360px !important; }
   .foot { color:#66708a; font-size:.75rem; margin-top:28px; }
-  @media (max-width:640px){ canvas{ height:280px !important; } }
+  @media (max-width:640px){
+    canvas{ height:280px !important; }
+    .histtable { font-size:.78rem; }
+    .histtable th, .histtable td { padding:4px 5px; }
+    .histtable .cur { font-size:.66rem; }
+    .panel { padding:14px 12px; }
+  }
   /* Wide screens (>=1200px): full-fill two-zone layout — chart left, lane cards
      in a fixed 400px right rail. Narrower screens keep the stacked layout. */
   @media (min-width:1200px){
@@ -441,10 +449,16 @@ cards.innerHTML = Object.entries(DATA.lanes).map(([lane, L]) => {
 const histEl = document.getElementById('history');
 histEl.innerHTML = Object.entries(DATA.lanes)
   .filter(([lane, L]) => L.cycles && L.cycles.length)
-  .map(([lane, L]) => `
-  <div class="histlane"><h3><span style="color:${L.color}">●</span> ${L.label}</h3>
-  <table class="histtable"><thead><tr><th>Cycle</th><th>Final</th><th>Peak</th><th>Burn</th><th>Samples</th><th></th></tr></thead>
-  <tbody>${L.cycles.map(c => `<tr><td>${c.start} – ${c.end}</td><td>${c.final_pct}%</td><td>${c.peak_pct}%</td><td>${c.burn_per_hour}%/h</td><td>${c.samples}</td><td>${c.current ? '<span class="cur">In progress</span>' : ''}</td></tr>`).join('')}</tbody></table></div>`).join('');
+  .map(([lane, L]) => {
+    const rows = L.cycles.map(c => {
+      const sp = c.start.split(' '), ep = c.end.split(' ');
+      const range = sp[0] === ep[0] ? `${sp[0]} ${sp[1]} – ${ep[1]}` : `${c.start} – ${c.end}`;
+      return `<tr><td>${range}</td><td>${c.final_pct}%</td><td>${c.peak_pct}%</td><td>${c.burn_per_hour}%/h</td><td>${c.samples}</td><td>${c.current ? '<span class="cur">In progress</span>' : ''}</td></tr>`;
+    }).join('');
+    return `<div class="histlane"><h3><span style="color:${L.color}">●</span> ${L.label}</h3>
+  <div class="histwrap"><table class="histtable"><thead><tr><th>Cycle</th><th>Final</th><th>Peak</th><th>Burn</th><th>Samples</th><th></th></tr></thead>
+  <tbody>${rows}</tbody></table></div></div>`;
+  }).join('');
 const datasets = Object.entries(DATA.lanes)
   .filter(([lane, L]) => L.points.length)
   .map(([lane, L]) => ({
