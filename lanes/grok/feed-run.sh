@@ -7,12 +7,16 @@
 # Steps: lock -> clone setup/fetch -> code from origin/main -> box bootstrap (heartbeat, tracker,
 # boxchrome; replaces the keep-alive's tracker part) -> ONE tracker reading under the tracker's
 # poll lock (R8) -> grok_bot row (PLAN Ultra, option A platform reading) + comparison pair ->
-# collect.py weekly rows -> push_feed.py (byte-prefix + append-only guards, git over the deploy
-# key, full-cycle retry, never forced) -> status file + optional healthchecks ping (R7).
+# collect.py weekly rows -> push_feed.py (byte-prefix + append-only guards; HTTPS with
+# GROK_FEED_GH_TOKEN first, SSH deploy key as fallback, or SSH-only when the token is unset;
+# full-cycle retry, never forced) -> status file (+ token-auth / token-expiry ALERTs) + optional
+# healthchecks ping (R7).
 # Nothing runs while the box is hibernated: the wake is the only clock.
 # Idempotent: a re-run with nothing new appends nothing and pushes nothing. --dry-run writes to a
 # scratch copy of the CSV and a scratch compare state, never pushes, never pings, skips bootstrap.
 # Last line: GROK_FEED <OK|WARN|FAIL|SKIP|DRYRUN> key=value...; ALERT/ACTION lines above it.
+# ALERT lines: boxchrome a->b; grok-feed push token auth failed/recovered (once per incident);
+# grok-feed GROK_FEED_GH_TOKEN expires ... (once, 14 days ahead of GROK_FEED_TOKEN_EXPIRES_UTC).
 # Exit 0 unless FAIL. Never prints secrets; never force-pushes; commits only data/grok/usage.csv.
 set -uo pipefail
 
@@ -64,15 +68,44 @@ finish() { # $1=status
   line="GROK_FEED $st at=$(ts_et) ${T[*]} hc=$hc"
   if [ $DRY = 0 ]; then
     echo "$line" >> "$STATE/status.log"; tail -n 3000 "$STATE/status.log" > "$STATE/status.log.tmp" && mv "$STATE/status.log.tmp" "$STATE/status.log"
-    python3 - "$STATE/status.json" "$st" "$line" <<'PY'
-import json,sys,os,datetime as d
-p,st,line=sys.argv[1:4]
+    local tok=0; [ -n "${GROK_FEED_GH_TOKEN:-}" ] && tok=1   # presence only; the value is never read here
+    python3 - "$STATE/status.json" "$st" "$line" "$tok" "${GROK_FEED_TOKEN_EXPIRES_UTC:-}" "$(ts_et)" <<'PY'
+import json,sys,os,re,datetime as d
+p,st,line,tok,exp,at=sys.argv[1:7]
 try: s=json.load(open(p))
 except Exception: s={}
-now=d.datetime.now(d.timezone.utc).isoformat(timespec="seconds")
+nowd=d.datetime.now(d.timezone.utc); now=nowd.isoformat(timespec="seconds")
 s.update(last_run_utc=now,last_status=st,last_line=line)
 if st=="OK": s["last_ok_utc"]=now; s["consecutive_fail"]=0
 if st=="FAIL": s["last_fail_utc"]=now; s["consecutive_fail"]=s.get("consecutive_fail",0)+1
+# Push transport + token-auth alert (Option 3 Variant A, Jeff Nov 22 2026). One ALERT per incident
+# plus one on recovery; the incident clears only when a push succeeds over HTTPS again.
+m=re.search(r"push=\[(PUSH \S+)([^\]]*)\]",line)
+if m:
+    pv=re.search(r" via=(\w+)",m.group(2)); authf=" https_auth_fail=1" in m.group(2)
+    if m.group(1).startswith("PUSH ok"):
+        s["last_push_via"]=pv.group(1) if pv else "ssh"; s["last_push_ok_utc"]=now
+    if authf:
+        s["last_push_auth_fail"]=now
+        if s.get("push_auth_state")!="fail":
+            s["push_auth_state"]="fail"; s["push_auth_fail_since"]=now
+            print("ALERT grok-feed push token auth failed (HTTPS 401/403) at %s; %s. Check GROK_FEED_GH_TOKEN "
+                  "(expired, revoked or missing Contents: write); see docs/SECRETS.md" % (at,
+                  "pushed via ssh_fallback" if m.group(1).startswith("PUSH ok") else "push FAILED, rows held locally"))
+    elif m.group(1).startswith("PUSH ok") and pv and pv.group(1)=="https" and s.get("push_auth_state")=="fail":
+        print("ALERT grok-feed push token auth recovered at %s (PUSH ok via=https; failing since %s)"
+              % (at, s.get("push_auth_fail_since","?")))
+        s["push_auth_state"]="ok"
+# Token expiry: one ALERT once the documented expiry (feed.conf) is within 14 days.
+if tok=="1" and exp:
+    try:
+        e=d.datetime.fromisoformat(exp.replace("Z","+00:00")); days=(e-nowd).total_seconds()/86400
+        s["token_expires_utc"]=exp
+        if days<=14 and s.get("token_expiry_alerted")!=exp:
+            s["token_expiry_alerted"]=exp
+            print("ALERT grok-feed GROK_FEED_GH_TOKEN expires %s (in %.1f days); renew it with the same scope and "
+                  "update GROK_FEED_TOKEN_EXPIRES_UTC in lanes/grok/feed.conf" % (exp, max(days,0)))
+    except ValueError: pass
 json.dump(s,open(p+".tmp","w"),indent=1); os.replace(p+".tmp",p)
 PY
   fi
@@ -90,7 +123,7 @@ if [ ! -d "$CLONE/.git" ]; then
   timeout 300 env GIT_TERMINAL_PROMPT=0 git clone -q "$REPO_HTTPS" "$CLONE" || { add "step=clone"; finish FAIL; }
 fi
 G config remote.origin.url "$REPO_HTTPS"
-G config remote.origin.pushurl "$REPO_SSH"
+G config remote.origin.pushurl "$REPO_SSH"   # SSH stays configured: fallback (token set) or only path (unset)
 G config core.sshCommand "ssh -i $KEY -o IdentitiesOnly=yes -o BatchMode=yes -o StrictHostKeyChecking=yes -o UserKnownHostsFile=$KNOWN -o ConnectTimeout=20 -o ServerAliveInterval=15 -o ProxyCommand='python3 $RUN/ssh_proxy.py %h %p'"
 G config core.autocrlf false; G config core.safecrlf false
 G config user.name "Keela (grok lane)"; G config user.email "grok-lane@keela-box.invalid"

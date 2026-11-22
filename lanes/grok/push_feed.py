@@ -16,13 +16,18 @@ The staged diff is the only change check (no .last_pushed_sha). Every git call i
 non-interactive with a timeout. On final failure the rows stay in the local CSV and the
 next run retries. --dry-run does everything except the push (optionally probing auth with
 `git push --dry-run`), then resets the clone.
-HTTPS fallback (Jeff, Sat Nov 21 2026 7:00 PM ET): when the SSH push (origin pushurl) fails
-and GROK_FEED_GH_TOKEN (fine-grained token, assistant-usage only, Contents r/w) is set, the
-same commit is pushed over HTTPS to REPO_HTTPS HEAD:main (never forced). The token reaches git
-only through the environment: a credential helper set via GIT_CONFIG_* env vars expands
-$GROK_FEED_GH_TOKEN inside git's own shell, so the value is never in argv, a URL, .git/config,
-a file, or any output (all git output is scrubbed). With the variable unset, behavior and output
-are exactly as before.
+HTTPS primary (Option 3, Variant A; Jeff, Sun Nov 22 2026 ~3:26 PM ET; replaces the PR #12
+SSH-first order): when GROK_FEED_GH_TOKEN (fine-grained token, assistant-usage only, Contents r/w)
+is set, the commit is pushed over HTTPS to REPO_HTTPS HEAD:main FIRST (never forced); only if that
+fails is the same commit pushed over SSH (origin pushurl, deploy key). PUSH line: via=https on the
+primary path, via=ssh_fallback https_err=... when SSH carried it. An HTTPS failure that looks like
+token auth (401/403, "Authentication failed", "Invalid username or password", "Permission to ...
+denied", permission denied, bad credentials) adds https_auth_fail=1 to the PUSH line (ok or fail);
+feed-run.sh turns that into an ALERT once per incident. --dry-run --probe-push probes HTTPS (with
+the token) when it is set, SSH otherwise. The token reaches git only through the environment: a
+credential helper set via GIT_CONFIG_* env vars expands $GROK_FEED_GH_TOKEN inside git's own shell,
+so the value is never in argv, a URL, .git/config, a file, or any output (all git output is
+scrubbed). With the variable unset the pusher is SSH-only, exactly as before PR #12.
 Prints one line starting with PUSH. Exit 0 = ok/noop/dry-run, 1 = fail.
 """
 import argparse, os, re, shutil, subprocess, sys, time
@@ -31,7 +36,7 @@ REL = "data/grok/usage.csv"
 TOKEN_VAR = "GROK_FEED_GH_TOKEN"
 REPO_HTTPS = "https://github.com/daboodah-oss/assistant-usage.git"
 ENV = dict(os.environ, GIT_TERMINAL_PROMPT="0", GIT_ASKPASS="/bin/false", LC_ALL="C")
-ENV.pop(TOKEN_VAR, None)  # only the HTTPS fallback push gets the token
+ENV.pop(TOKEN_VAR, None)  # only the HTTPS push gets the token
 # Credential helper text: references the variable by name; git's shell expands it at use time.
 CRED_HELPER = '!f() { test "$1" = get || exit 0; echo username=x-access-token; echo "password=${%s}"; }; f' % TOKEN_VAR
 SECRET_RX = re.compile(rb"(eyJ[\w-]{10,}\.[\w-]{10,}|gh[pousr]_[A-Za-z0-9]{20,}|github_pat_\w{20,}|"
@@ -51,19 +56,27 @@ def scrub(text):
     return SECRET_RX.sub(b"<scrubbed>", b).decode("utf-8", "replace")
 
 
-def https_push(clone):
-    """Push HEAD:main over HTTPS with the token from the environment. Returns (rc, last_line)."""
+AUTH_RX = re.compile(r"returned error: 40[13]|\b40[13]\b.*(Unauthorized|Forbidden)|Authentication failed|"
+                     r"Invalid username or password|Permission to \S+ denied|[Pp]ermission denied|"
+                     r"Bad credentials|could not read (Username|Password)|Resource not accessible")
+
+
+def https_push(clone, dry_run=False):
+    """Push HEAD:main over HTTPS with the token from the environment.
+    Returns (rc, last_line, auth_fail). Output is scrubbed before it is inspected or returned."""
     env = dict(ENV, GIT_CONFIG_COUNT="2",
                GIT_CONFIG_KEY_0="credential.helper", GIT_CONFIG_VALUE_0="",
                GIT_CONFIG_KEY_1="credential.helper", GIT_CONFIG_VALUE_1=CRED_HELPER)
     env[TOKEN_VAR] = os.environ[TOKEN_VAR]
+    cmd = ["git", "-C", clone, "push"] + (["--dry-run"] if dry_run else []) + ["--porcelain", REPO_HTTPS, "HEAD:main"]
     try:
-        r = subprocess.run(["git", "-C", clone, "push", "--porcelain", REPO_HTTPS, "HEAD:main"],
-                           capture_output=True, timeout=120, env=env)
+        r = subprocess.run(cmd, capture_output=True, timeout=120, env=env)
     except subprocess.TimeoutExpired:
-        return 124, "https push timed out after 120s"
+        return 124, "https push timed out after 120s", False
+    text = scrub((r.stderr or b"") + b"\n" + (r.stdout or b""))
     out = scrub(r.stderr or r.stdout).strip().splitlines()
-    return r.returncode, (out[-1] if out else "")[:200]
+    auth = r.returncode != 0 and bool(AUTH_RX.search(text))
+    return r.returncode, (out[-1] if out else "")[:200], auth
 
 
 def git(clone, *args, timeout=90, check=True):
@@ -143,6 +156,8 @@ def main():
     if not os.path.exists(a.src):
         print("PUSH fail reason=local_csv_missing"); return 1
     err = None
+    use_https = bool(os.environ.get(TOKEN_VAR))
+    auth_fail = False
     for attempt in range(1, a.attempts + 1):
         with open(a.src, "rb") as f:
             src_bytes = f.read()
@@ -160,7 +175,11 @@ def main():
         crw = " warn=new_crlf_rows:%d" % cr_new if cr_new else ""
         if a.dry_run:
             probe = ""
-            if a.probe_push:
+            if a.probe_push and use_https:
+                hrc, hlast, hauth = https_push(a.clone, dry_run=True)
+                probe = " probe_push=%s(%s) via=https%s" % ("ok" if hrc == 0 else "fail", hlast.replace(" ", "_")[:120],
+                                                           " https_auth_fail=1" if hauth else "")
+            elif a.probe_push:
                 r = git(a.clone, "push", "--dry-run", "--porcelain", "origin", "HEAD:main", timeout=90, check=False)
                 out = (r.stdout + r.stderr).decode("utf-8", "replace").strip().splitlines()
                 probe = " probe_push=%s(%s)" % ("ok" if r.returncode == 0 else "fail",
@@ -169,24 +188,34 @@ def main():
             git(a.clone, "reset", "--quiet", "--hard", "origin/main", check=False)
             print("PUSH dry-run would_commit=%r rows=%d bytes=%d stat=%r%s%s"
                   % (msg, rows, nbytes, stat[-1].strip() if stat else "", probe, crw)); return 0
-        r = git(a.clone, "push", "--porcelain", "origin", "HEAD:main", timeout=120, check=False)
-        if r.returncode == 0:
-            sha = git(a.clone, "rev-parse", "HEAD").stdout.decode().strip()
-            print("PUSH ok sha=%s rows=%d bytes=%d attempt=%d%s" % (sha, rows, nbytes, attempt, crw)); return 0
-        out = (r.stderr or r.stdout).decode("utf-8", "replace").strip().splitlines()
-        err = "push rejected: " + (out[-1] if out else "")[:200]
-        if os.environ.get(TOKEN_VAR):
-            ssh_err = scrub(out[-1] if out else "")[:120].replace(" ", "_")
-            hrc, hlast = https_push(a.clone)
+        if use_https:
+            # Option 3 Variant A: HTTPS (token) first, SSH (deploy key) only if HTTPS fails.
+            hrc, hlast, hauth = https_push(a.clone)
+            auth_fail = auth_fail or hauth
+            af = " https_auth_fail=1" if hauth else ""
             if hrc == 0:
                 sha = git(a.clone, "rev-parse", "HEAD").stdout.decode().strip()
-                print("PUSH ok sha=%s rows=%d bytes=%d attempt=%d via=https_fallback ssh_err=%s%s"
-                      % (sha, rows, nbytes, attempt, ssh_err, crw)); return 0
-            err = "push rejected: ssh=%s https=%s" % ((out[-1] if out else "")[:100], hlast[:100])
-            err = scrub(err)
+                print("PUSH ok sha=%s rows=%d bytes=%d attempt=%d via=https%s" % (sha, rows, nbytes, attempt, crw)); return 0
+            https_err = scrub(hlast)[:120].replace(" ", "_")
+            r = git(a.clone, "push", "--porcelain", "origin", "HEAD:main", timeout=120, check=False)
+            if r.returncode == 0:
+                sha = git(a.clone, "rev-parse", "HEAD").stdout.decode().strip()
+                print("PUSH ok sha=%s rows=%d bytes=%d attempt=%d via=ssh_fallback https_err=%s%s%s"
+                      % (sha, rows, nbytes, attempt, https_err, af, crw)); return 0
+            out = (r.stderr or r.stdout).decode("utf-8", "replace").strip().splitlines()
+            err = scrub("push rejected: https=%s ssh=%s" % (hlast[:100], (out[-1] if out else "")[:100]))
+        else:
+            # Token unset: SSH-only, exactly as before PR #12.
+            r = git(a.clone, "push", "--porcelain", "origin", "HEAD:main", timeout=120, check=False)
+            if r.returncode == 0:
+                sha = git(a.clone, "rev-parse", "HEAD").stdout.decode().strip()
+                print("PUSH ok sha=%s rows=%d bytes=%d attempt=%d%s" % (sha, rows, nbytes, attempt, crw)); return 0
+            out = (r.stderr or r.stdout).decode("utf-8", "replace").strip().splitlines()
+            err = "push rejected: " + (out[-1] if out else "")[:200]
         time.sleep(5 * attempt)
     git(a.clone, "reset", "--quiet", "--hard", "origin/main", check=False)
-    print("PUSH fail reason=%s attempts=%d" % ((err or "unknown").replace(" ", "_")[:300], a.attempts)); return 1
+    print("PUSH fail reason=%s attempts=%d%s" % ((err or "unknown").replace(" ", "_")[:300], a.attempts,
+                                                " https_auth_fail=1" if auth_fail else "")); return 1
 
 
 if __name__ == "__main__":

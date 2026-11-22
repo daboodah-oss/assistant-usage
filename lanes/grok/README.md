@@ -26,8 +26,8 @@ healthchecks.io feed check) can notice that.
 | Collector | `lanes/grok/collect.py` | Newest reading -> `weekly` + `weekly_<product>` rows (only if `ok`, has a %, < 20 min old). `plan` = tracker tier as the settings endpoint reports it |
 | Grok Bot appender | `lanes/grok/append_grok_bot.py` | One `grok_bot` row; `PLAN = "Ultra"`; `--source platform` (option A) or `billing_product` (option B) |
 | Comparison | `lanes/grok/grokbot_compare.py` | Platform vs billing `weekly_GrokBot` pairs from the Nov 21, 2026 reset; applies Jeff's switch/keep/extend rule |
-| Pusher | `lanes/grok/push_feed.py` | Transport clone, full-cycle retry x3, byte-prefix + append-only + newline + no-token guards, never forced |
-| Transport | `lanes/grok/ssh_proxy.py` + deploy key | SSH to ssh.github.com:443 through the box's HTTP CONNECT egress proxy |
+| Pusher | `lanes/grok/push_feed.py` | Transport clone, full-cycle retry x3, byte-prefix + append-only + newline + no-token guards, never forced. With `GROK_FEED_GH_TOKEN` set: HTTPS first (`via=https`), SSH only if HTTPS fails (`via=ssh_fallback`); token unset: SSH-only |
+| Transport | HTTPS + `GROK_FEED_GH_TOKEN` (primary); `lanes/grok/ssh_proxy.py` + deploy key (fallback) | HTTPS to github.com with the fine-grained token from the box env; SSH to ssh.github.com:443 through the box's HTTP CONNECT egress proxy (unsupported by xAI per ticket T-K97957, kept as fallback) |
 | Config | `lanes/grok/feed.conf` | `GROK_BOT_SOURCE=platform` until the comparison rule switches it |
 
 Box paths: lane CSV (source of truth) `/workspace/assistant-usage/data/grok/usage.csv`;
@@ -43,12 +43,18 @@ bash /workspace/assistant-usage-clone/lanes/grok/feed-run.sh --setup       # clo
 ```
 
 Last line: `GROK_FEED OK|WARN|FAIL|SKIP|DRYRUN ...`. `WARN` = pushed but no fresh weekly row
-this run (stale/failed reading). Exit 1 only on `FAIL`. `ALERT boxchrome a->b` and `ACTION ...`
-lines are printed above it when they occur.
+this run (stale/failed reading). Exit 1 only on `FAIL`. `ALERT boxchrome a->b`, `ALERT grok-feed push token auth failed|recovered ...`
+(once per incident, from `status.json` `push_auth_state`), `ALERT grok-feed GROK_FEED_GH_TOKEN expires ...`
+(once, 14 days ahead of `GROK_FEED_TOKEN_EXPIRES_UTC` in `feed.conf`) and `ACTION ...` lines are printed
+above it when they occur. `status.json` also records `last_push_via` (`https`, `ssh_fallback` or `ssh`).
 
 ## Auth
 
-- Push: deploy key `~/.ssh/grok_feed_deploy` (see `docs/SECRETS.md`). Fetch is anonymous HTTPS
+- Push: HTTPS with `GROK_FEED_GH_TOKEN` (box env only, via a `GIT_CONFIG_*` credential helper; never in
+  argv, a URL, `.git/config` or a file) first, then the deploy key `~/.ssh/grok_feed_deploy` as fallback
+  (see `docs/SECRETS.md`; Option 3 Variant A, Jeff, Nov 22 2026). Token unset = SSH-only, as before
+  PR #12. Token renewal: routine `grok-feed-token-renewal-reminder` (Feb 5 and Feb 15, 2027, 9:00 AM
+  ET) plus the expiry ALERT. Fetch is anonymous HTTPS
   (public repo). If the repo goes private, set `remote.origin.url` to the SSH URL too.
 - Grok: the CLI login in `~/.grok/auth.json`, refreshed by the tracker (under `.poll.lock`).
   Re-provisioning (`refresh_failed` / `skipped_auth` in the tracker log): `grok login` on the box.
