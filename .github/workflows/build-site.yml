@@ -20,7 +20,15 @@ jobs:
           git commit -m "Site build (auto)"
           for i in 1 2 3; do
             git fetch origin main
-            if ! git rebase origin/main; then git rebase --abort; echo "rebase conflict"; exit 1; fi
+            if ! git rebase origin/main; then
+              # Another run pushed index.html first. Rebuild on top of it instead of failing.
+              git rebase --abort
+              git reset --hard origin/main
+              python3 site/build.py
+              git add index.html
+              if git diff --cached --quiet; then echo "no site changes"; exit 0; fi
+              git commit -m "Site build (auto)"
+            fi
             if git push origin main; then echo "site pushed"; exit 0; fi
             sleep 5
           done
