@@ -18,7 +18,7 @@ jobs:
           git add index.html
           if git diff --cached --quiet; then echo "no site changes"; exit 0; fi
           git commit -m "Site build (auto)"
-          for i in 1 2 3; do
+          for i in 1 2 3 4 5; do
             git fetch origin main
             if ! git rebase origin/main; then
               # Another run pushed index.html first. Rebuild on top of it instead of failing.
@@ -30,7 +30,7 @@ jobs:
               git commit -m "Site build (auto)"
             fi
             if git push origin main; then echo "site pushed"; exit 0; fi
-            sleep 5
+            sleep $((i * 10))  # wait longer after each failed try (10s, 20s, ...) to ride out brief GitHub push errors
           done
-          echo "site push failed after 3 attempts"
+          echo "site push failed after 5 attempts"
           exit 1
