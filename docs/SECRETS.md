@@ -26,3 +26,25 @@ sampler workflow.
   refresh tokens). Use a lockfile so concurrent runs can't double-rotate.
 - Spot-check before handing off: `git log -p -- lanes/<name> data/<name> |
   grep -iE 'token|secret|bearer'` must show nothing sensitive.
+
+## Incident note — 2026-11-26 (Budzilla)
+
+The Grok box rebooted twice overnight (02:01 / 06:33 ET) and the
+platform dropped secret injection into the box shell environment: all
+five box secrets (the pool's ODDS_API_KEY, TELEGRAM_BOT_TOKEN,
+HEALTHCHECK_URL and the feed's GROK_FEED_GH_TOKEN, GROK_FEED_HC_URL)
+were absent until Jeff re-entered the pool three plus the feed token
+via secret-request cards at 09:17–09:19 ET. The fallback file
+/home/box/agent-data/box-secrets.json is owned 0600 by sand-host, so
+its fallback reads fail after a platform reboot — do not rely on it.
+GROK_FEED_HC_URL is still unset; Budzilla verified 2026-11-26 that
+Jeff's Healthchecks account holds no feed check, so there may be no
+URL to restore (create the check, or retire the variable — Jeff's
+call; see the indy-pool hardening review). During the outage the feed
+fell back to the SSH deploy-key push and GitHub rejected it; the repo
+side is verified healthy (the "keela-box grok lane" deploy key is
+present and writable, fingerprint
+SHA256:VDidiPdjyfGpSxfmk0Db+YxNimgFJcV3xcvgAnHrpEk), so the failure is
+in the box-side transport (core.sshCommand / ssh_proxy.py / key
+offering). Full record: indy-pool
+docs/incidents/2026-11-26-box-secrets-injection.md.
