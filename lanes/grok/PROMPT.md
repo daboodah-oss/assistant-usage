@@ -8,6 +8,19 @@ You own the `grok` lane of the repo `daboodah-oss/assistant-usage` — a unified
 usage dashboard for Jeff's three AI assistants (Muse, Claude, Grok). Your job:
 feed your Grok (SuperGrok) subscription usage into the shared page.
 
+## Current push and heartbeat (2026-11-26)
+
+Pushes are HTTPS-only to `https://github.com/daboodah-oss/assistant-usage.git`
+`HEAD:main` via `GROK_FEED_GH_TOKEN` (box environment, `GIT_CONFIG_*` credential
+helper, value never printed). The SSH fallback was retired on 2026-11-26:
+Pingora blocks SSH CONNECT to ssh.github.com:443. If the token is absent,
+`lanes/grok/push_feed.py` fails with `PUSH fail reason=GROK_FEED_GH_TOKEN_unset`.
+
+Healthchecks: use `GROK_FEED_HC_URL` when it is set. When it is unset or empty,
+`lanes/grok/feed-run.sh` reads `/workspace/grok-feed/state/.hc_ping_url`
+(mode 0600, box-owned, trailing whitespace stripped). The URL is never printed
+or logged. Details: `lanes/grok/README.md` and `docs/SECRETS.md`.
+
 ## Read first (in the repo)
 
 1. `README.md` — project overview and the lane rule
@@ -48,7 +61,10 @@ your login. No tokens ever leave your computer, no lane workflow file.
 
 ## What Jeff must do
 
-Nothing on this lane. No login, no secrets.
+The lane runs on the box, so there is still no GitHub Actions secret for it.
+Jeff provisions `GROK_FEED_GH_TOKEN` in the box environment (HTTPS push) and,
+if he wants the off-box feed check, either `GROK_FEED_HC_URL` or the box file
+`/workspace/grok-feed/state/.hc_ping_url` (mode 0600). See `docs/SECRETS.md`.
 
 ## Acceptance
 

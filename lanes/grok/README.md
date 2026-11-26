@@ -4,7 +4,8 @@ The Grok lane runs on Keela's Grok Bot box. No GitHub Actions secrets and no lan
 the Grok refresh token rotates on every use and must live in exactly one place (the box).
 
 Design of record: `docs/reviews/grok-feed-design-keela-rev3-2026-11-15.md` (approved by Jeff,
-Nov 15, 2026).
+Nov 15, 2026). R7 option A and R8 (Budzilla and Jeff, 2026-11-26) supersede that design's
+SSH transport and the sentence that an unset `GROK_FEED_HC_URL` only reports `hc=unset`.
 
 ## The one rule about time
 
@@ -26,8 +27,8 @@ healthchecks.io feed check) can notice that.
 | Collector | `lanes/grok/collect.py` | Newest reading -> `weekly` + `weekly_<product>` rows (only if `ok`, has a %, < 20 min old). `plan` = tracker tier as the settings endpoint reports it |
 | Grok Bot appender | `lanes/grok/append_grok_bot.py` | One `grok_bot` row; `PLAN = "Ultra"`; `--source platform` (option A) or `billing_product` (option B) |
 | Comparison | `lanes/grok/grokbot_compare.py` | Platform vs billing `weekly_GrokBot` pairs from the Nov 21, 2026 reset; applies Jeff's switch/keep/extend rule |
-| Pusher | `lanes/grok/push_feed.py` | Transport clone, full-cycle retry x3, byte-prefix + append-only + newline + no-token guards, never forced. With `GROK_FEED_GH_TOKEN` set: HTTPS first (`via=https`), SSH only if HTTPS fails (`via=ssh_fallback`); token unset: SSH-only |
-| Transport | HTTPS + `GROK_FEED_GH_TOKEN` (primary); `lanes/grok/ssh_proxy.py` + deploy key (fallback) | HTTPS to github.com with the fine-grained token from the box env; SSH to ssh.github.com:443 through the box's HTTP CONNECT egress proxy (unsupported by xAI per ticket T-K97957, kept as fallback) |
+| Pusher | `lanes/grok/push_feed.py` | Transport clone, full-cycle retry x3, byte-prefix + append-only + newline + no-token guards, never forced. HTTPS only via `GROK_FEED_GH_TOKEN` (`via=https`). If the token is unset: `PUSH fail reason=GROK_FEED_GH_TOKEN_unset` |
+| Transport | HTTPS + `GROK_FEED_GH_TOKEN` only | Fetch is anonymous HTTPS. Push is HTTPS with the fine-grained token from the box env. SSH to ssh.github.com:443 was retired 2026-11-26 (Pingora returns HTTP 400 on SSH CONNECT). `lanes/grok/ssh_proxy.py` is a retired stub and is not on the push path |
 | Config | `lanes/grok/feed.conf` | `GROK_BOT_SOURCE=platform` until the comparison rule switches it |
 
 Box paths: lane CSV (source of truth) `/workspace/assistant-usage/data/grok/usage.csv`;
@@ -46,16 +47,22 @@ Last line: `GROK_FEED OK|WARN|FAIL|SKIP|DRYRUN ...`. `WARN` = pushed but no fres
 this run (stale/failed reading). Exit 1 only on `FAIL`. `ALERT boxchrome a->b`, `ALERT grok-feed push token auth failed|recovered ...`
 (once per incident, from `status.json` `push_auth_state`), `ALERT grok-feed GROK_FEED_GH_TOKEN expires ...`
 (once, 14 days ahead of `GROK_FEED_TOKEN_EXPIRES_UTC` in `feed.conf`) and `ACTION ...` lines are printed
-above it when they occur. `status.json` also records `last_push_via` (`https`, `ssh_fallback` or `ssh`).
+above it when they occur. `status.json` also records `last_push_via` (`https`).
+Healthchecks (R7 option A): ping `GROK_FEED_HC_URL` when that variable is set and non-empty;
+otherwise read `/workspace/grok-feed/state/.hc_ping_url` if the file exists and is readable
+(mode 0600, box-owned; trailing whitespace stripped). The URL is never printed or logged.
+If neither is set, the status line says `hc=unset`.
 
 ## Auth
 
-- Push: HTTPS with `GROK_FEED_GH_TOKEN` (box env only, via a `GIT_CONFIG_*` credential helper; never in
-  argv, a URL, `.git/config` or a file) first, then the deploy key `~/.ssh/grok_feed_deploy` as fallback
-  (see `docs/SECRETS.md`; Option 3 Variant A, Jeff, Nov 22 2026). Token unset = SSH-only, as before
-  PR #12. Token renewal: routine `grok-feed-token-renewal-reminder` (Feb 5 and Feb 15, 2027, 9:00 AM
-  ET) plus the expiry ALERT. Fetch is anonymous HTTPS
-  (public repo). If the repo goes private, set `remote.origin.url` to the SSH URL too.
+- Push: HTTPS only with `GROK_FEED_GH_TOKEN` (box env only, via a `GIT_CONFIG_*` credential helper; never in
+  argv, a URL, `.git/config`, a file, or a log). See `docs/SECRETS.md`. The SSH fallback was retired
+  2026-11-26 (Budzilla and Jeff): Pingora blocks SSH CONNECT to ssh.github.com:443, so there is no SSH
+  push and no monthly SSH drill. If the token is unset, `push_feed.py` fails with
+  `reason=GROK_FEED_GH_TOKEN_unset` and the rows stay local. Token renewal: routine
+  `grok-feed-token-renewal-reminder` (Feb 5 and Feb 15, 2027, 9:00 AM ET) plus the expiry ALERT.
+  Fetch is anonymous HTTPS (public repo). If the repo goes private, fetch needs the same token over
+  HTTPS.
 - Grok: the CLI login in `~/.grok/auth.json`, refreshed by the tracker (under `.poll.lock`).
   Re-provisioning (`refresh_failed` / `skipped_auth` in the tracker log): `grok login` on the box.
 - Nothing token-related is ever logged, committed or sent to GitHub; the pusher refuses appended

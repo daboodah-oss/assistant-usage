@@ -7,10 +7,11 @@
 # Steps: lock -> clone setup/fetch -> code from origin/main -> box bootstrap (heartbeat, tracker,
 # boxchrome; replaces the keep-alive's tracker part) -> ONE tracker reading under the tracker's
 # poll lock (R8) -> grok_bot row (PLAN Ultra, option A platform reading) + comparison pair ->
-# collect.py weekly rows -> push_feed.py (byte-prefix + append-only guards; HTTPS with
-# GROK_FEED_GH_TOKEN first, SSH deploy key as fallback, or SSH-only when the token is unset;
-# full-cycle retry, never forced) -> status file (+ token-auth / token-expiry ALERTs) + optional
-# healthchecks ping (R7).
+# collect.py weekly rows -> push_feed.py (byte-prefix + append-only guards; HTTPS-only via
+# GROK_FEED_GH_TOKEN, full-cycle retry, never forced; fails loud if the token is unset.
+# SSH fallback retired 2026-11-26: Pingora blocks SSH CONNECT to ssh.github.com:443) ->
+# status file (+ token-auth / token-expiry ALERTs) + optional healthchecks ping (R7;
+# GROK_FEED_HC_URL, else /workspace/grok-feed/state/.hc_ping_url).
 # Nothing runs while the box is hibernated: the wake is the only clock.
 # Idempotent: a re-run with nothing new appends nothing and pushes nothing. --dry-run writes to a
 # scratch copy of the CSV and a scratch compare state, never pushes, never pings, skips bootstrap.
@@ -29,17 +30,16 @@ fi
 trap 'rm -f "$GROK_FEED_REEXEC"' EXIT
 
 REPO_HTTPS=https://github.com/daboodah-oss/assistant-usage.git
-REPO_SSH=ssh://git@ssh.github.com:443/daboodah-oss/assistant-usage.git
 CLONE=${GROK_FEED_CLONE:-/workspace/assistant-usage-clone}
 LANE_CSV=${GROK_FEED_CSV:-/workspace/assistant-usage/data/grok/usage.csv}
 STATE=${GROK_FEED_STATE:-/workspace/grok-feed/state}
 RUN=$STATE/run
 CODE_REF=${GROK_FEED_CODE_REF:-origin/main}
-KEY=${GROK_FEED_KEY:-$HOME/.ssh/grok_feed_deploy}
-KNOWN=$HOME/.ssh/known_hosts_grokfeed
 TRACKER_DIR=${GROK_TRACKER_DIR:-/workspace/grok-usage}
 BOOTSTRAP=/workspace/ops/box-bootstrap.sh
-CODE_FILES="collect.py append_grok_bot.py push_feed.py take_reading.py grokbot_compare.py ssh_proxy.py feed.conf"
+# ssh_proxy.py stays on origin/main as a retired stub for one wake, but this script
+# does not load or invoke it (R8).
+CODE_FILES="collect.py append_grok_bot.py push_feed.py take_reading.py grokbot_compare.py feed.conf"
 
 DRY=0; READ=1; BOOT=1; SETUP_ONLY=0; GB_PCT=""; GB_RESET=""
 while [ $# -gt 0 ]; do
@@ -55,13 +55,33 @@ ts_et() { TZ=America/New_York date +%Y-%m-%dT%H:%M:%S%z; }
 T=() # status fields
 add() { T+=("$1"); }
 
+# R7 option A. Prefer a non-empty GROK_FEED_HC_URL. Otherwise, if the box-owned file
+# exists and is readable, use its first line with trailing whitespace removed.
+# Never prints the URL. An empty result means no ping URL is configured.
+hc_ping_url() {
+  if [ -n "${GROK_FEED_HC_URL:-}" ]; then
+    printf '%s' "$GROK_FEED_HC_URL"
+    return 0
+  fi
+  local f=/workspace/grok-feed/state/.hc_ping_url line
+  [ -f "$f" ] && [ -r "$f" ] || return 0
+  IFS= read -r line < "$f" || true
+  line=${line%"${line##*[![:space:]]}"}
+  printf '%s' "$line"
+}
+
 finish() { # $1=status
   local st=$1 line hc="skipped"
-  local url="${GROK_FEED_HC_URL:-}"
-  if [ $DRY = 0 ] && [ -n "$url" ]; then
+  local url=""
+  # Dry-run never pings and does not read the URL.
+  if [ $DRY = 0 ]; then
+    url=$(hc_ping_url)
+  fi
+  if [ -n "$url" ]; then
     case "$st" in
-      OK) curl -fsS -m 10 --retry 2 -o /dev/null --data-raw "grok-feed $st ${T[*]}" "$url" && hc=sent || hc=err ;;
-      FAIL) curl -fsS -m 10 --retry 2 -o /dev/null --data-raw "grok-feed $st ${T[*]}" "$url/fail" && hc=sent_fail || hc=err ;;
+      # stderr discarded: curl errors can echo the URL, and the URL is never logged.
+      OK) curl -fsS -m 10 --retry 2 -o /dev/null --data-raw "grok-feed $st ${T[*]}" "$url" 2>/dev/null && hc=sent || hc=err ;;
+      FAIL) curl -fsS -m 10 --retry 2 -o /dev/null --data-raw "grok-feed $st ${T[*]}" "$url/fail" 2>/dev/null && hc=sent_fail || hc=err ;;
       *) hc=none_for_$st ;;
     esac
   elif [ $DRY = 0 ]; then hc=unset; fi
@@ -78,20 +98,20 @@ nowd=d.datetime.now(d.timezone.utc); now=nowd.isoformat(timespec="seconds")
 s.update(last_run_utc=now,last_status=st,last_line=line)
 if st=="OK": s["last_ok_utc"]=now; s["consecutive_fail"]=0
 if st=="FAIL": s["last_fail_utc"]=now; s["consecutive_fail"]=s.get("consecutive_fail",0)+1
-# Push transport + token-auth alert (Option 3 Variant A, Jeff Nov 22 2026). One ALERT per incident
+# Push transport + token-auth alert (HTTPS only, R8, 2026-11-26). One ALERT per incident
 # plus one on recovery; the incident clears only when a push succeeds over HTTPS again.
 m=re.search(r"push=\[(PUSH \S+)([^\]]*)\]",line)
 if m:
     pv=re.search(r" via=(\w+)",m.group(2)); authf=" https_auth_fail=1" in m.group(2)
     if m.group(1).startswith("PUSH ok"):
-        s["last_push_via"]=pv.group(1) if pv else "ssh"; s["last_push_ok_utc"]=now
+        s["last_push_via"]=pv.group(1) if pv else "https"; s["last_push_ok_utc"]=now
     if authf:
         s["last_push_auth_fail"]=now
         if s.get("push_auth_state")!="fail":
             s["push_auth_state"]="fail"; s["push_auth_fail_since"]=now
             print("ALERT grok-feed push token auth failed (HTTPS 401/403) at %s; %s. Check GROK_FEED_GH_TOKEN "
-                  "(expired, revoked or missing Contents: write); see docs/SECRETS.md" % (at,
-                  "pushed via ssh_fallback" if m.group(1).startswith("PUSH ok") else "push FAILED, rows held locally"))
+                  "(expired, revoked, or missing Contents: write); see docs/SECRETS.md" % (at,
+                  "PUSH ok via=https" if m.group(1).startswith("PUSH ok") else "push FAILED, rows held locally"))
     elif m.group(1).startswith("PUSH ok") and pv and pv.group(1)=="https" and s.get("push_auth_state")=="fail":
         print("ALERT grok-feed push token auth recovered at %s (PUSH ok via=https; failing since %s)"
               % (at, s.get("push_auth_fail_since","?")))
@@ -123,8 +143,9 @@ if [ ! -d "$CLONE/.git" ]; then
   timeout 300 env GIT_TERMINAL_PROMPT=0 git clone -q "$REPO_HTTPS" "$CLONE" || { add "step=clone"; finish FAIL; }
 fi
 G config remote.origin.url "$REPO_HTTPS"
-G config remote.origin.pushurl "$REPO_SSH"   # SSH stays configured: fallback (token set) or only path (unset)
-G config core.sshCommand "ssh -i $KEY -o IdentitiesOnly=yes -o BatchMode=yes -o StrictHostKeyChecking=yes -o UserKnownHostsFile=$KNOWN -o ConnectTimeout=20 -o ServerAliveInterval=15 -o ProxyCommand='python3 $RUN/ssh_proxy.py %h %p'"
+# R8 (2026-11-26): HTTPS only. Drop any SSH push URL or sshCommand left on this clone.
+G config --unset-all remote.origin.pushurl >/dev/null 2>&1 || true
+G config --unset-all core.sshCommand >/dev/null 2>&1 || true
 G config core.autocrlf false; G config core.safecrlf false
 G config user.name "Keela (grok lane)"; G config user.email "grok-lane@keela-box.invalid"
 G config push.default nothing
