@@ -8088,3 +8088,5 @@ timestamp_utc,usage_pct,plan,reset_iso,window,raw
 2026-11-27T03:45:02+00:00,17,pro,2026-11-30T21:59:59.588597+00:00,seven_day,"{""utilization"":17.0,""resets_at"":""2026-11-30T21:59:59.588597+00:00""}"
 2026-11-27T04:00:03+00:00,0,pro,,five_hour,"{""utilization"":0.0,""resets_at"":null}"
 2026-11-27T04:00:03+00:00,17,pro,2026-11-30T22:00:00.283287+00:00,seven_day,"{""utilization"":17.0,""resets_at"":""2026-11-30T22:00:00.283287+00:00""}"
+2026-11-27T04:15:02+00:00,0,pro,,five_hour,"{""utilization"":0.0,""resets_at"":null}"
+2026-11-27T04:15:02+00:00,17,pro,2026-11-30T21:59:59.684871+00:00,seven_day,"{""utilization"":17.0,""resets_at"":""2026-11-30T21:59:59.684871+00:00""}"
